@@ -33,42 +33,41 @@ Music generation involves creating musical pieces using neural networks. This pr
 
 gan-project/
 │
-├── 📁 data/ # Raw/processed data (excluded from version control)
-│ ├── raw/ # Original datasets (e.g., MIDI files)
-│ └── processed/ # Preprocessed data for training
+├── 📁 data/                  # Raw or preprocessed data (do not version large files)
+│   ├── raw/                 # Original data
+│   └── processed/           # Preprocessed data for training
 │
-├── 📁 models/ # Model architectures
-│ ├── generator.py # GAN generator
-│ └── discriminator.py # GAN discriminator
+├── 📁 models/                # Network definitions (Generator, Discriminator, etc.)
+│   ├── generator.py
+│   └── discriminator.py
 │
-├── 📁 utils/ # Utilities
-│ ├── dataset_loader.py # MIDI data loading
-│ ├── metrics.py # Evaluation metrics
-│ └── plot_tools.py # Visualization tools
+├── 📁 utils/                 # Various utilities (visualizations, metrics, helpers, etc.)
+│   ├── dataset_loader.py
+│   ├── metrics.py
+│   └── plot_tools.py
 │
-├── 📁 configs/ # Training configurations (YAML/JSON)
-│ └── default.yaml # Hyperparameters
+├── 📁 configs/               # Configurations for training/testing (YAML or JSON)
+│   └── default.yaml
 │
-├── 📁 training/ # Training scripts
-│ ├── train.py # Main training loop
-│ └── trainer.py # Training logic
+├── 📁 training/              # Training scripts and logic
+│   ├── train.py
+│   └── trainer.py
 │
-├── 📁 evaluation/ # Model evaluation
-│ └── evaluate.py # Metrics/comparisons
+├── 📁 evaluation/            # Scripts for model evaluation
+│   └── evaluate.py
 │
-├── 📁 experiments/ # Experiment logs/notebooks
-│ └── exp1_gan_vs_wgan.ipynb # Example experiment
+├── 📁 experiments/           # Notebooks, reports, or experiment logs
+│   └── exp1_gan_vs_wgan.ipynb
 │
-├── 📁 outputs/ # Generated outputs
-│ ├── images/ # Sample outputs
-│ ├── checkpoints/ # Saved models
-│ └── logs/ # Training logs
+├── 📁 outputs/               # Generated outputs (images, logs, saved models)
+│   ├── images/
+│   ├── checkpoints/
+│   └── logs/
 │
-├── .gitignore # Excluded files (e.g., large datasets)
-├── requirements.txt # Python dependencies
-├── README.md # Project documentation
-└── main.py # Entry point for training
-
+├── .gitignore               # Files to ignore (e.g., *.pt, __pycache__, data/raw, etc.)
+├── requirements.txt         # Required Python libraries
+├── README.md                # Main project documentation
+└── main.py                  # Entry point for training or other tasks
 
 
 ---
