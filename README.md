@@ -30,7 +30,7 @@ Music generation involves creating musical pieces using neural networks. This pr
 ---
 
 ## 📂 Project Structure
-
+ ```
 gan-project/
 │
 ├── 📁 data/                  # Raw or preprocessed data (do not version large files)
@@ -68,7 +68,7 @@ gan-project/
 ├── requirements.txt         # Required Python libraries
 ├── README.md                # Main project documentation
 └── main.py                  # Entry point for training or other tasks
-
+ ```
 
 ---
 
