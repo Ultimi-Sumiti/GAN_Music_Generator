@@ -31,7 +31,7 @@ Music generation involves creating musical pieces using neural networks. This pr
 
 ## 📂 Project Structure
  ```
-gan-project/
+GAN_Music_Generator/
 │
 ├── 📁 data/                  # Raw or preprocessed data (do not version large files)
 │   ├── raw/                 # Original data
@@ -108,7 +108,7 @@ Example:
 ## 🔧 Setup
 1. Clone the repo:  
    ```bash
-   git clone https://github.com/Ultimi-Sumiti/DL_project/gan-project.git
+   git clone https://github.com/Ultimi-Sumiti/DL_project/GAN_Music_Generator.git
 
 2. Install dependencies:
    ```bash  
