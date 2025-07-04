@@ -34,12 +34,13 @@ def normalize_melody_roll(piano_roll, lb, ub):
     # Finds coordinates of active notes.
     active_pitches, active_timesteps = np.where(piano_roll > 0)
     
-    for i in range(len(active_pitches)):
-        pitch = active_pitches[i]
-        time = active_timesteps[i]
-        velocity = piano_roll[pitch, time]
+    for pitch, t in zip(active_pitches, active_timesteps):
+        
+       # Save original velocity.
+        velocity = piano_roll[pitch, t]
     
-        # Move the pitch in the range C4-B5 (i.e. in 60-83).
+        # Move the pitch in the range lb-up.
+        # 12 => shift by one octave.
         while pitch < lb:
             pitch += 12
         while pitch > ub:
@@ -47,7 +48,7 @@ def normalize_melody_roll(piano_roll, lb, ub):
         
         # Write the note in the piano roll.
         if lb <= pitch <= ub:
-            normalized_piano_roll[pitch, time] = velocity
+            normalized_piano_roll[pitch, t] = velocity
 
     return normalized_piano_roll
     
