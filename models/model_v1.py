@@ -2,8 +2,13 @@ import os
 import numpy as np 
 import torch 
 import torch.nn as nn
-import lightning as L 
+#import lightning as L 
+import pytorch_lightning as L
 
+from dataset_loader import *
+
+# Define batch size.
+BATCH_SIZE = 32
 
 # Remember a tensor with pytorch is composed as: (N x C x H x W) if is a 3d tensor
 
@@ -90,6 +95,7 @@ class Discriminator(nn.Module):
 # Merging all togheter to expolit, building the entire GAN architechture with the lightining module
 # As function of this class we can directly implement the training process
 class GAN(L.LightningModule):
+
     # Constructor
     def __init__(
         self,
@@ -125,40 +131,139 @@ class GAN(L.LightningModule):
         self.generator = Generator(latent_dim)
         self.discriminator = Discriminator()
 
-        #
-        self.validation_z = torch.randn(8, self.hparams.latent_dim)
-        self.example_input_array = torch.zeros(2, self.hparams.latent_dim)
+        # Used to see intermediate outputs after each epoch.
+        self.validation_z = torch.randn(8, latent_dim)
+        self.example_input_array = torch.zeros(2, latent_dim)
 
     # Forward step computed     
-    def forward(self):
-        return
+    # TO check: __call__ = forward
+    def forward(self, x):
+        self.generator(x)
 
-    # Loss of the Adversarial game 
-    def adversarial_loss(self,):
-        return
+    # Loss of the Adversarial game.
+    def adversarial_loss(self, y_hat, y):
+        loss_fn = nn.BCEWithLogits()
+        return loss_fn(y_hat, y)
 
     # Gan training algorithm    
-    def training_step(self, ) :
-        return 
+    def training_step(self, batch):
+        # Batch images (for the discriminator).
+        imgs = batch # Ignore the labels.
+        
+        # Define the optimizers.
+        optimizer_g, optimizer_d = self.optimizers()
+
+        # Measure discriminator's ability to classify real from generated samples.
+        # Activate Generator optimizer. 
+        self.toggle_optimizer(optimizer_d)
+
+        valid = torch.ones(imgs.size(0), 1)
+        valid = valid.type_as(imgs)
+
+        # First term of discriminator loss.
+        real_loss = self.adversarial_loss(
+                self.discriminator(imgs),
+                valid
+        )
+
+        fake = torch.zeros(imgs.size(0), 1)
+        fake = fake.type_as(imgs)
+
+        # Second term of discriminator loss.
+        fake_loss = self.adversarial_loss(
+                self.discriminator(self.generated_imgs.detach()),
+                fake
+        )
+
+        # Total discriminator loss.
+        d_loss = real_loss + fake_loss
+
+        # Discriminator training.
+        #self.log("d_loss", d_loss, prog_bar=True)
+        self.manual_backward(d_loss)
+        optimizer_d.step()
+        optimizer_d.zero_grad()
+        self.untoggle_optimizer(optimizer_d)
+
+
+        # Sample noise for the generator.
+        # img.shape = dim batch.
+        z = torch.randn(img.shape[0], self.hparams.latent_dim)
+        # put on GPU because we created this tensor inside training_loop
+        z = z.type_as(imgs)
+
+        # Activate Generator optimizer. 
+        self.toggle_optimizer(optimizer_g)
+        # Generate images.
+        self.generated_imgs = self(z)
+
+        # Log sampled images.
+        # TODO
+        
+        # ground truth result (ie: all fake)
+        valid = torch.ones(imgs.size(0), 1)
+        # put on GPU because we created this tensor inside training_loop
+        valid = valid.type_as(imgs)
+
+        # Generator loss.
+        g_loss = self.adversarial_loss(
+                self.discriminator(self.generated_imgs),
+                valid
+        )
+
+        # Generator training.
+        #self.log("g_loss", g_loss, prog_bar=True) # Log loss.
+        self.manual_backward(g_loss) # Toggle.
+        optimizer_g.step() # Update weights.
+        optimizer_g.zero_grad() # Avoid accumulation of gradients.
+        self.untoggle_optimizer(optimizer_g)
+        
 
     def validation_step(self, ) :
-        return 
+        pass
 
     def configure_optimizers(self) :
-        return 
+        lr = self.hparams.lr
+        b1 = self.hparams.b1
+        b2 = self.hparams.b2
+
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        return [opt_g, opt_d], []
     
     def on_validation_epoch_end(self) :
-        return 
+        z = self.validation_z.type_as(self.generator.model[0].weight)
+
+        # log sampled images
+        sample_imgs = self(z)
+        grid = torchvision.utils.make_grid(sample_imgs)
+        #self.logger.experiment.add_image("validation/generated_images", grid, self.current_epoch)
         
 
 # Test Main
 if __name__== "__main__":
 
-    net_generator = Generator(100)
-    net_discriminator = Discriminator()
+    #net_generator = Generator(100)
+    #net_discriminator = Discriminator()
     
-    x = torch.rand(1, 100)
-    out = net_generator(x)
+    #x = torch.rand(1, 100)
+    #out = net_generator(x)
+
+    model = GAN()
+
+    dm = MaestroV3DataModule("../data/preprocessed/maestro-v3.0.0/dataset1/")
+
+    trainer = L.Trainer(
+        #enable_progress_bar=True,
+        accelerator="auto",
+        devices=1,
+        max_epochs=1,
+    )
+    trainer.fit(model, dm)
+
+
+
+
 
     print("Generator output ", out.size())
 
