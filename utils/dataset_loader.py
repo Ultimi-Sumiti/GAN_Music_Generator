@@ -11,17 +11,19 @@ class MaestroV3DataSet(Dataset):
         self.file = h5py.File(file_path, "r")['x']
 
     def __len__(self):
-        return self.file.shape
+        return len(self.file)
 
     def __getitem__(self, idx):
         matrix = self.file[idx]
-        return torch.tensor(matrix)
+        tensor = torch.tensor(matrix, dtype=torch.float32)
+        return tensor.unsqueeze(0)
 
 
 # Define the meastro DataLoader.
 class MaestroV3DataModule(L.LightningDataModule):
 
     def __init__(self, data_dir: str, batch_size: int = 32):
+        super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
 
@@ -30,17 +32,3 @@ class MaestroV3DataModule(L.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
-
-
-# Small tester.
-if __name__ == "__main__":
-    dataset_path = "../data/preprocessed/maestro-v3.0.0/dataset1/d1.h5"
-
-    dataset = MaestroV3DataSet(dataset_path)
-    print("Dataset size =", dataset.__len__())
-
-    sample = dataset[0]
-    print(sample.shape)
-
-    print((sample > 0).sum())
-    
