@@ -50,11 +50,30 @@ class Generator(nn.Module):
         # Function f() to create a monophonic layer by prev. feature map, i.e
         # turn off per time step all but the note with the highest activation
 
-        # Override of the forward method
+    # Need to fix.
+    #def to_monophonic(self, x):
+    #    # Get the indices of the maximum values (non-differentiable)
+    #    _, max_indices = torch.max(x, dim=2, keepdim=True)
+    #
+    #    # Create the one-hot tensor for the forward pass
+    #    y_hard = torch.zeros_like(x, memory_format=torch.legacy_contiguous_format)
+    #    y_hard.scatter_(dim=2, index=max_indices, value=1.0)
+    #
+    #    # Use the Straight-Through Estimator trick to allow gradients to flow
+    #    # In the forward pass, this is equivalent to y_hard.
+    #    # In the backward pass, the gradient is taken from x.
+    #    tensor = (y_hard - x).detach() + x
+    #    
+    #    return tensor
+
+    # Override of the forward method
     def forward(self, x):
-            y = self.fc_net(x)
-            y = self.transp_conv_net(y)
-            return y
+        y = self.fc_net(x)
+        y = self.transp_conv_net(y)
+        #y = self.to_monophonic(y)
+        #tmp = y.squeeze(0).to("cpu")
+        #print("TOT:", (tmp > 0).sum())
+        return y
 
  
 # Discriminator Architecture
@@ -174,7 +193,7 @@ class GAN(L.LightningModule):
         )
 
         # Generator training.
-        #self.log("g_loss", g_loss, prog_bar=True) # Log loss.
+        self.log("g_loss", g_loss, prog_bar=True) # Log loss.
         self.manual_backward(g_loss) # Toggle.
         optimizer_g.step() # Update weights.
         optimizer_g.zero_grad() # Avoid accumulation of gradients.
@@ -207,7 +226,7 @@ class GAN(L.LightningModule):
         d_loss = real_loss + fake_loss
 
         # Discriminator training.
-        #self.log("d_loss", d_loss, prog_bar=True)
+        self.log("d_loss", d_loss, prog_bar=True)
         self.manual_backward(d_loss)
         optimizer_d.step()
         optimizer_d.zero_grad()
@@ -231,4 +250,4 @@ class GAN(L.LightningModule):
         # log sampled images
         sample_imgs = self(z)
         grid = torchvision.utils.make_grid(sample_imgs)
-        #self.logger.experiment.add_image("validation/generated_images", grid, self.current_epoch)
+        self.logger.experiment.add_image("validation/generated_images", grid, self.current_epoch)
