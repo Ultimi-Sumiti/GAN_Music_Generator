@@ -5,7 +5,7 @@ import torch.nn as nn
 #import lightning as L 
 import pytorch_lightning as L
 
-from dataset_loader import *
+from utils.dataset_loader import MaestroV3DataModule
 
 # Define batch size.
 BATCH_SIZE = 32
@@ -52,14 +52,11 @@ class Generator(nn.Module):
 
         # Override of the forward method
     def forward(self, x):
-            
-            print(x.shape)
             y = self.fc_net(x)
-            print(y.shape)
             y = self.transp_conv_net(y)
-            print(y.shape)
             return y
-        
+
+ 
 # Discriminator Architecture
 class Discriminator(nn.Module):
     def __init__(self):
@@ -85,12 +82,10 @@ class Discriminator(nn.Module):
     
     # Override of the forward method
     def forward(self,x):
-
         y = self.conv_net(x)
         y = self.fc_net(y)
         return y
 
-  
 
 # Merging all togheter to expolit, building the entire GAN architechture with the lightining module
 # As function of this class we can directly implement the training process
@@ -138,11 +133,11 @@ class GAN(L.LightningModule):
     # Forward step computed     
     # TO check: __call__ = forward
     def forward(self, x):
-        self.generator(x)
+        return self.generator(x)
 
     # Loss of the Adversarial game.
     def adversarial_loss(self, y_hat, y):
-        loss_fn = nn.BCEWithLogits()
+        loss_fn = nn.BCEWithLogitsLoss()
         return loss_fn(y_hat, y)
 
     # Gan training algorithm    
@@ -153,6 +148,39 @@ class GAN(L.LightningModule):
         # Define the optimizers.
         optimizer_g, optimizer_d = self.optimizers()
 
+        ### GENERATOR ####
+        # Sample noise for the generator.
+        z = torch.randn(imgs.shape[0], self.hparams.latent_dim)
+        # put on GPU because we created this tensor inside training_loop
+        z = z.type_as(imgs)
+
+        # Activate Generator optimizer. 
+        self.toggle_optimizer(optimizer_g)
+        # Generate images.
+        self.generated_imgs = self(z)
+
+        # Log sampled images.
+        # TODO
+        
+        # ground truth result (ie: all fake)
+        valid = torch.ones(imgs.size(0), 1)
+        # put on GPU because we created this tensor inside training_loop
+        valid = valid.type_as(imgs)
+
+        # Generator loss.
+        g_loss = self.adversarial_loss(
+                self.discriminator(self.generated_imgs),
+                valid
+        )
+
+        # Generator training.
+        #self.log("g_loss", g_loss, prog_bar=True) # Log loss.
+        self.manual_backward(g_loss) # Toggle.
+        optimizer_g.step() # Update weights.
+        optimizer_g.zero_grad() # Avoid accumulation of gradients.
+        self.untoggle_optimizer(optimizer_g)
+
+        ### DISCRIMINATOR ####
         # Measure discriminator's ability to classify real from generated samples.
         # Activate Generator optimizer. 
         self.toggle_optimizer(optimizer_d)
@@ -185,40 +213,6 @@ class GAN(L.LightningModule):
         optimizer_d.zero_grad()
         self.untoggle_optimizer(optimizer_d)
 
-
-        # Sample noise for the generator.
-        # img.shape = dim batch.
-        z = torch.randn(img.shape[0], self.hparams.latent_dim)
-        # put on GPU because we created this tensor inside training_loop
-        z = z.type_as(imgs)
-
-        # Activate Generator optimizer. 
-        self.toggle_optimizer(optimizer_g)
-        # Generate images.
-        self.generated_imgs = self(z)
-
-        # Log sampled images.
-        # TODO
-        
-        # ground truth result (ie: all fake)
-        valid = torch.ones(imgs.size(0), 1)
-        # put on GPU because we created this tensor inside training_loop
-        valid = valid.type_as(imgs)
-
-        # Generator loss.
-        g_loss = self.adversarial_loss(
-                self.discriminator(self.generated_imgs),
-                valid
-        )
-
-        # Generator training.
-        #self.log("g_loss", g_loss, prog_bar=True) # Log loss.
-        self.manual_backward(g_loss) # Toggle.
-        optimizer_g.step() # Update weights.
-        optimizer_g.zero_grad() # Avoid accumulation of gradients.
-        self.untoggle_optimizer(optimizer_g)
-        
-
     def validation_step(self, ) :
         pass
 
@@ -238,32 +232,3 @@ class GAN(L.LightningModule):
         sample_imgs = self(z)
         grid = torchvision.utils.make_grid(sample_imgs)
         #self.logger.experiment.add_image("validation/generated_images", grid, self.current_epoch)
-        
-
-# Test Main
-if __name__== "__main__":
-
-    #net_generator = Generator(100)
-    #net_discriminator = Discriminator()
-    
-    #x = torch.rand(1, 100)
-    #out = net_generator(x)
-
-    model = GAN()
-
-    dm = MaestroV3DataModule("../data/preprocessed/maestro-v3.0.0/dataset1/")
-
-    trainer = L.Trainer(
-        #enable_progress_bar=True,
-        accelerator="auto",
-        devices=1,
-        max_epochs=1,
-    )
-    trainer.fit(model, dm)
-
-
-
-
-
-    print("Generator output ", out.size())
-
