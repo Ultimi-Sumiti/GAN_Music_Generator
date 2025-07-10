@@ -2,10 +2,13 @@ import os
 import numpy as np 
 import torch 
 import torch.nn as nn
-#import lightning as L 
+#import lightning as L
 import pytorch_lightning as L
 
-from utils.dataset_loader import MaestroV3DataModule
+# Used to print during training generated images.
+from torchvision.utils import make_grid
+import matplotlib.pyplot as plt
+from IPython import display
 
 # Define batch size.
 BATCH_SIZE = 32
@@ -47,32 +50,30 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(in_channels=256, out_channels=1, kernel_size=(128,1), stride=1),
             nn.ReLU()
         )
-        # Function f() to create a monophonic layer by prev. feature map, i.e
-        # turn off per time step all but the note with the highest activation
 
-    # Need to fix.
-    #def to_monophonic(self, x):
-    #    # Get the indices of the maximum values (non-differentiable)
-    #    _, max_indices = torch.max(x, dim=2, keepdim=True)
-    #
-    #    # Create the one-hot tensor for the forward pass
-    #    y_hard = torch.zeros_like(x, memory_format=torch.legacy_contiguous_format)
-    #    y_hard.scatter_(dim=2, index=max_indices, value=1.0)
-    #
-    #    # Use the Straight-Through Estimator trick to allow gradients to flow
-    #    # In the forward pass, this is equivalent to y_hard.
-    #    # In the backward pass, the gradient is taken from x.
-    #    tensor = (y_hard - x).detach() + x
-    #    
-    #    return tensor
+    # Function f() to create a monophonic layer by prev. feature map, i.e
+    # turn off per time step all but the note with the highest activation.
+    def to_monophonic(self, x):
+        # Get the indices of the maximum values (non-differentiable).
+        _, max_indices = torch.max(x, dim=2, keepdim=True)
+    
+        # Create the one-hot tensor for the forward pass
+        y_hard = torch.zeros_like(x, memory_format=torch.legacy_contiguous_format)
+        y_hard.scatter_(dim=2, index=max_indices, value=1.0)
+    
+        # Use the Straight-Through Estimator trick to allow gradients to flow
+        # In the forward pass -> this is equivalent to y_hard.
+        # In the backward pass -> the gradient is taken from x.
+        tensor = (y_hard - x).detach() + x
+        # Use this to skip the non-differentiable function during backprop!
+        
+        return tensor
 
     # Override of the forward method
     def forward(self, x):
         y = self.fc_net(x)
         y = self.transp_conv_net(y)
-        #y = self.to_monophonic(y)
-        #tmp = y.squeeze(0).to("cpu")
-        #print("TOT:", (tmp > 0).sum())
+        y = self.to_monophonic(y)
         return y
 
  
@@ -96,7 +97,7 @@ class Discriminator(nn.Module):
             nn.Linear(in_features=231, out_features=1024),
             nn.ReLU(),
             nn.Linear(in_features=1024, out_features=1),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
     
     # Override of the forward method
@@ -146,7 +147,7 @@ class GAN(L.LightningModule):
         self.discriminator = Discriminator()
 
         # Used to see intermediate outputs after each epoch.
-        self.validation_z = torch.randn(8, latent_dim)
+        self.validation_z = torch.randn(10, latent_dim)
         self.example_input_array = torch.zeros(2, latent_dim)
 
     # Forward step computed     
@@ -232,6 +233,7 @@ class GAN(L.LightningModule):
         optimizer_d.zero_grad()
         self.untoggle_optimizer(optimizer_d)
 
+
     def validation_step(self, ) :
         pass
 
@@ -244,10 +246,28 @@ class GAN(L.LightningModule):
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
         return [opt_g, opt_d], []
     
-    def on_validation_epoch_end(self) :
-        z = self.validation_z.type_as(self.generator.model[0].weight)
+    def on_train_epoch_end(self) :
+        # Clear ouput.
+        display.clear_output(wait=True)
+        
+        z = self.validation_z.type_as(self.generator.fc_net[0].weight)
 
-        # log sampled images
-        sample_imgs = self(z)
-        grid = torchvision.utils.make_grid(sample_imgs)
-        self.logger.experiment.add_image("validation/generated_images", grid, self.current_epoch)
+        # Generate images.
+        sample_imgs = self(z).detach().cpu()
+
+        # Grid dimensions.
+        cols = 5
+        rows = 2
+
+        # Create the figure.
+        fig, axes = plt.subplots(rows, cols, figsize=(cols*4, rows*2))
+        axes = axes.flatten()
+        for idx, (ax, img) in enumerate(zip(axes, sample_imgs)):
+            img_np = img.squeeze().numpy()
+            im = ax.imshow(img_np, aspect='auto', origin='lower', cmap='hot')
+            ax.set_title(f"#{idx}")
+            fig.colorbar(im, ax=ax, label='Velocity')
+
+        # Plot the figure.
+        plt.tight_layout()
+        plt.show()
