@@ -53,7 +53,7 @@ def normalize_melody_roll(piano_roll, lb, ub):
     return normalized_piano_roll
     
 
-def show_piano_roll(piano_roll, slicing):
+def show_piano_roll(piano_roll, slicing=None):
     plt.figure(figsize=(12, 4))
     if slicing is not None:
         plt.imshow(piano_roll[slicing], aspect='auto', origin='lower', cmap='hot')
