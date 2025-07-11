@@ -9,9 +9,36 @@ import pytorch_lightning as L
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 from IPython import display
+from torch.autograd import Function
 
 # Define batch size.
 BATCH_SIZE = 32
+
+class MonophonicSTE(Function):
+    @staticmethod
+    def forward(ctx, x):
+        # x: (N, C, F, T) for example
+        # Find the max along the feature axis (dim=2)
+        _, max_idx = x.max(dim=2, keepdim=True)
+        # Create a hard one‐hot tensor
+        y_hard = torch.zeros_like(x)
+        y_hard.scatter_(2, max_idx, 1.0)
+        # Save nothing for backward, since gradient is identity
+        return y_hard
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Straight‐through: pass the gradient through unchanged
+        return grad_output
+
+class MonophonicLayer(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        # Apply the Function; during forward you get the hard mask,
+        # but in backward the grad w.r.t. x is grad_output (identity).
+        return MonophonicSTE.apply(x)
 
 # Remember a tensor with pytorch is composed as: (N x C x H x W) if is a 3d tensor
 
@@ -51,29 +78,14 @@ class Generator(nn.Module):
             nn.ReLU()
         )
 
-    # Function f() to create a monophonic layer by prev. feature map, i.e
-    # turn off per time step all but the note with the highest activation.
-    def to_monophonic(self, x):
-        # Get the indices of the maximum values (non-differentiable).
-        _, max_indices = torch.max(x, dim=2, keepdim=True)
-    
-        # Create the one-hot tensor for the forward pass
-        y_hard = torch.zeros_like(x, memory_format=torch.legacy_contiguous_format)
-        y_hard.scatter_(dim=2, index=max_indices, value=1.0)
-    
-        # Use the Straight-Through Estimator trick to allow gradients to flow
-        # In the forward pass -> this is equivalent to y_hard.
-        # In the backward pass -> the gradient is taken from x.
-        tensor = (y_hard - x).detach() + x
-        # Use this to skip the non-differentiable function during backprop!
-        
-        return tensor
+        self.monophonic = MonophonicLayer()
 
     # Override of the forward method
     def forward(self, x):
         y = self.fc_net(x)
         y = self.transp_conv_net(y)
-        y = self.to_monophonic(y)
+        y = self.monophonic(y)
+        #assert (y <= 1).all(), "Found a value bigger than one"
         return y
 
  
@@ -246,6 +258,7 @@ class GAN(L.LightningModule):
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
         return [opt_g, opt_d], []
     
+    # It shuld be on_validation_epoch_end
     def on_train_epoch_end(self) :
         # Clear ouput.
         display.clear_output(wait=True)
