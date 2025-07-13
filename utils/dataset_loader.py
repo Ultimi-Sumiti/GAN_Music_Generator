@@ -31,4 +31,6 @@ class MaestroV3DataModule(L.LightningDataModule):
         self.dataset = MaestroV3DataSet(self.data_dir)
 
     def train_dataloader(self):
-        return DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True)
+        nw = 9 # Shuld be tuned based on the CPU.
+        return DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
+                         num_workers=nw)
