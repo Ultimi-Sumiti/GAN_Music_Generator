@@ -126,8 +126,13 @@ class Discriminator(nn.Module):
         )
     
     # Override of the forward method
-    def forward(self,x):
-        y = self.conv_net(x)
+    def forward(self, x, feature_out=False):
+        y = self.conv_net1(x)
+
+        if feature_out:
+            return y
+        
+        y = self.conv_net2(y)
         y = self.fc_net(y)
         return y
 
@@ -151,7 +156,9 @@ class GAN(L.LightningModule):
         # Adam optimizer params (to tune)
         b1: float = 0.5,
         b2: float = 0.999,
-
+        lambda_1 = 100,
+        lambda_2 = 1,
+        
         # Minibatch size
         batch_size: int = BATCH_SIZE,
         **kwargs,
@@ -193,70 +200,94 @@ class GAN(L.LightningModule):
         # Define the optimizers.
         optimizer_g, optimizer_d = self.optimizers()
 
-        ### GENERATOR ####
+        ### DISCRIMINATOR ####
+        # Measure discriminator's ability to classify real from generated samples.
+
         # Sample noise for the generator.
         z = torch.randn(imgs.shape[0], self.hparams.latent_dim)
         # put on GPU because we created this tensor inside training_loop
         z = z.type_as(imgs)
-
-        # Activate Generator optimizer. 
-        self.toggle_optimizer(optimizer_g)
-        # Generate images.
+    
+        # Generate new images.
         self.generated_imgs = self(z)
-
-        # Log sampled images.
-        # TODO
         
-        # ground truth result (ie: all fake)
-        valid = torch.ones(imgs.size(0), 1)
-        # put on GPU because we created this tensor inside training_loop
-        valid = valid.type_as(imgs)
-
-        # Generator loss.
-        g_loss = self.adversarial_loss(
-                self.discriminator(self.generated_imgs),
-                valid
-        )
-
-        # Generator training.
-        self.log("g_loss", g_loss, prog_bar=True) # Log loss.
-        self.manual_backward(g_loss) # Toggle.
-        optimizer_g.step() # Update weights.
-        optimizer_g.zero_grad() # Avoid accumulation of gradients.
-        self.untoggle_optimizer(optimizer_g)
-
-        ### DISCRIMINATOR ####
-        # Measure discriminator's ability to classify real from generated samples.
         # Activate Generator optimizer. 
         self.toggle_optimizer(optimizer_d)
-
-        valid = torch.ones(imgs.size(0), 1)
+    
+        valid = torch.ones(imgs.size(0), 1) * 0.9
         valid = valid.type_as(imgs)
-
+    
         # First term of discriminator loss.
         real_loss = self.adversarial_loss(
                 self.discriminator(imgs),
                 valid
         )
-
+    
         fake = torch.zeros(imgs.size(0), 1)
         fake = fake.type_as(imgs)
-
+    
         # Second term of discriminator loss.
         fake_loss = self.adversarial_loss(
                 self.discriminator(self.generated_imgs.detach()),
                 fake
         )
-
+    
         # Total discriminator loss.
         d_loss = real_loss + fake_loss
-
+    
         # Discriminator training.
         self.log("d_loss", d_loss, prog_bar=True)
         self.manual_backward(d_loss)
         optimizer_d.step()
         optimizer_d.zero_grad()
         self.untoggle_optimizer(optimizer_d)
+
+        ### GENERATOR ####
+        for _ in range(3):
+            # Sample noise for the generator.
+            z = torch.randn(imgs.shape[0], self.hparams.latent_dim)
+            # put on GPU because we created this tensor inside training_loop
+            z = z.type_as(imgs)
+        
+            # Activate Generator optimizer. 
+            self.toggle_optimizer(optimizer_g)
+            # Generate images.
+            self.generated_imgs = self(z)
+        
+            # Log sampled images.
+            # TODO
+            
+            # ground truth result (ie: all fake)
+            valid = torch.ones(imgs.size(0), 1)
+            # put on GPU because we created this tensor inside training_loop
+            valid = valid.type_as(imgs)
+    
+            # Compute the loss function.
+            mean_img_from_batch = torch.mean(imgs)
+            mean_img_from_g = torch.mean(self.generated_imgs)
+            regularizer_1 = torch.norm(mean_img_from_batch - mean_img_from_g) ** 2
+    
+            # TOFIX: should we detach??
+            real_features = torch.mean(self.discriminator(imgs, feature_out=True))
+            fake_features = torch.mean(self.discriminator(self.generated_imgs, feature_out=True))
+            regularizer_2 = torch.norm(real_features - fake_features) ** 2
+        
+            g_adversarial_loss = self.adversarial_loss(
+                self.discriminator(self.generated_imgs),
+                valid
+            )
+    
+            # Total loss.
+            g_loss = (self.hparams.lambda_1 * regularizer_1 
+                      + self.hparams.lambda_2 * regularizer_2 
+                      + g_adversarial_loss)
+        
+            # Generator training.
+            self.log("g_loss", g_loss, prog_bar=True) # Log loss.
+            self.manual_backward(g_loss) # Toggle.
+            optimizer_g.step() # Update weights.
+            optimizer_g.zero_grad() # Avoid accumulation of gradients.
+            self.untoggle_optimizer(optimizer_g)
 
 
     def validation_step(self, ) :
@@ -270,7 +301,7 @@ class GAN(L.LightningModule):
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
         return [opt_g, opt_d], []
-    
+
     # It shuld be on_validation_epoch_end
     def on_train_epoch_end(self) :
         # Clear ouput.
