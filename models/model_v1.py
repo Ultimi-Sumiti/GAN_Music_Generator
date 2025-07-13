@@ -52,15 +52,16 @@ class Generator(nn.Module):
 
         self.fc_net = nn.Sequential(
             nn.Linear(in_features= input_size, out_features= 1024),
-            nn.ReLU(),
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(),
             nn.Linear(in_features=1024, out_features=512),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             
             # nn.Unflatten(1, (1, 256, 2)) 
            
             # Compressed layer
             nn.Linear(in_features=512, out_features=2),
-            nn.ReLU(), 
+            nn.LeakyReLU(), 
             # Reshape torch.rand(N, 2) --> torch.rand(N, 1 , 1 , 2)
             nn.Unflatten(1,(1 , 1 , 2))
 
@@ -69,13 +70,19 @@ class Generator(nn.Module):
         self.transp_conv_net = nn.Sequential(
             # Default: padding=0, output_padding=0,  dilation=1
             nn.ConvTranspose2d(in_channels=1, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(), 
+            
             nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(), 
+            
             nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.ReLU(),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(), 
+            
             nn.ConvTranspose2d(in_channels=256, out_channels=1, kernel_size=(128,1), stride=1),
-            nn.ReLU()
+            nn.LeakyReLU(), 
         )
 
         self.monophonic = MonophonicLayer()
@@ -94,12 +101,17 @@ class Discriminator(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.conv_net = nn.Sequential(
+        self.conv_net1 = nn.Sequential(
             # Default: padding=0,  dilation=1
             nn.Conv2d(in_channels=1, out_channels=14, kernel_size=(128,2), stride=2),
-            nn.ReLU(),
+            nn.LeakyReLU(), 
+            nn.Dropout(0.3),
+        )
+        
+        self.conv_net2 = nn.Sequential(
             nn.Conv2d(in_channels=14, out_channels=77, kernel_size=(1,4), stride=2),
-            nn.ReLU(),
+            nn.LeakyReLU(), 
+            nn.Dropout(0.3),
 
             # Reshape torch.rand(N, 77, 1 ,3) --> torch.rand(N, 231) 
             nn.Flatten(start_dim=1)
@@ -107,7 +119,8 @@ class Discriminator(nn.Module):
 
         self.fc_net = nn.Sequential(
             nn.Linear(in_features=231, out_features=1024),
-            nn.ReLU(),
+            nn.LeakyReLU(), 
+            nn.Dropout(0.3),
             nn.Linear(in_features=1024, out_features=1),
             #nn.Sigmoid()
         )
