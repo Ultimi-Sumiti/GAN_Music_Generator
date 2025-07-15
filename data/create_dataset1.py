@@ -37,11 +37,14 @@ def extract_samples(dir_path, samples):
         # Binarize melody piano roll.
         melody_roll[melody_roll > 0] = 1
         melody_roll = melody_roll.astype(bool)
+
+        # Normalize melody piano roll.
+        melody_roll = normalize_melody_roll(melody_roll, lb=60, ub=83)
     
         # Add zero padding to the end of the piano roll.
         zero_padding = COLS_PER_BAR - (melody_roll.shape[1] % COLS_PER_BAR)
         melody_roll = np.pad(melody_roll, ((0, 0), (0, zero_padding)), mode='constant', constant_values=0)
-        
+
         # Fill piano roll.
         melody_roll = fill_melody_pauses(melody_roll)
 
