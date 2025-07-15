@@ -114,4 +114,5 @@ Example:
    ```bash  
    pip install -r requirements.txt
 
-   
+
+Library to install h5py, lightining, numpy , matplotlib, pytorch
