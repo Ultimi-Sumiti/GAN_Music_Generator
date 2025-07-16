@@ -12,9 +12,6 @@ class MaestroV3DataSet(Dataset):
         self.h5_path = file_path
         # Save dataset length.
         with h5py.File(self.h5_path, "r") as f:
-            # Assuming your data is stored in a group named 'x'
-            # and inside it, a dataset named 'images'.
-            # Adjust ['x']['images'] if your HDF5 structure is different.
             self.length = len(f['x'])
         # Mode can be either single or pair.
         assert mode == "single" or mode == "pair"
