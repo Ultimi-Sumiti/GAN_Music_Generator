@@ -56,6 +56,7 @@ class Generator(nn.Module):
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(),
             nn.Linear(in_features=1024, out_features=512),
+            nn.BatchNorm1d(512),
             nn.LeakyReLU(),
             
             # nn.Unflatten(1, (1, 256, 2)) 
@@ -83,8 +84,8 @@ class Generator(nn.Module):
             nn.LeakyReLU(), 
             
             nn.ConvTranspose2d(in_channels=256, out_channels=1, kernel_size=(128,1), stride=1),
-            #nn.LeakyReLU(), 
-            nn.Sigmoid()
+            nn.LeakyReLU(), 
+            #nn.Sigmoid()
         )
 
         self.monophonic = MonophonicLayer()
@@ -93,13 +94,12 @@ class Generator(nn.Module):
     def forward(self, x):
         y = self.fc_net(x)
         y = self.transp_conv_net(y)
-        non_mono = y
         y = self.monophonic(y)
-        #assert (y <= 1).all(), "Found a value bigger than one"
+        assert (y <= 1).all(), "Found a value bigger than one"
         return y
 
  
-# Discriminator Architecture
+# Discriminator Architecture - No minibatch disc.
 #class Discriminator(nn.Module):
 #    def __init__(self):
 #        super().__init__()
@@ -140,7 +140,7 @@ class Generator(nn.Module):
 #        return y
 
 
-# Discriminator Architecture
+# Discriminator Architecture - Minibatch disc.
 class Discriminator(nn.Module):
     def __init__(self, minibatch_B=10, minibatch_C=5):
         super().__init__()
@@ -182,7 +182,6 @@ class Discriminator(nn.Module):
             return y
         
         features_flattened = self.conv_net2(y) 
-
 
         mbd_output = self.bd_net(features_flattened) 
 
@@ -227,7 +226,6 @@ class MinibatchDiscrimination(nn.Module):
 
         # Now we need to compute the autocorrelation and substruct ot the scores 
         diag_elements = c[torch.arange(N, device=x.device), torch.arange(N, device=x.device)]
-
 
         out = scores - diag_elements
 
@@ -293,7 +291,6 @@ class GAN(L.LightningModule):
 
         # Used to see intermediate outputs after each epoch.
         self.validation_z = torch.randn(10, latent_dim)
-        self.example_input_array = torch.zeros(2, latent_dim)
 
     # Forward step computed     
     # TO check: __call__ = forward
@@ -437,15 +434,11 @@ class GAN(L.LightningModule):
         # Generate images.
         sample_imgs = self(z).detach().cpu()
         
-        #sample_imgs, non_mono_imgs = self.generator(z, non_mono_out=True)
-        #sample_imgs = sample_imgs.detach().cpu()
-        #non_mono_imgs = non_mono_imgs.detach().cpu()
-
         # Grid dimensions.
         cols = 5
         rows = 2
 
-        # Create the figure (Mono).
+        # Create the figure.
         fig, axes = plt.subplots(rows, cols, figsize=(cols*4, rows*2))
         axes = axes.flatten()
         for idx, (ax, img) in enumerate(zip(axes, sample_imgs)):
@@ -457,16 +450,3 @@ class GAN(L.LightningModule):
         # Plot the figure.
         plt.tight_layout()
         plt.show()
-        
-        ## Create the figure (Non-Mono).
-        #fig, axes = plt.subplots(rows, cols, figsize=(cols*4, rows*2))
-        #axes = axes.flatten()
-        #for idx, (ax, img) in enumerate(zip(axes, non_mono_imgs)):
-        #    img_np = img.squeeze().numpy()
-        #    im = ax.imshow(img_np, aspect='auto', origin='lower', cmap='hot')
-        #    ax.set_title(f"#{idx}")
-        #    fig.colorbar(im, ax=ax, label='Velocity')
-#
-        ## Plot the figure.
-        #plt.tight_layout()
-        #plt.show()
