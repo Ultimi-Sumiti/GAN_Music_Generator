@@ -33,7 +33,7 @@ class MaestroV3DataSet(Dataset):
     
             else:
                 # MODEL 2
-                prev, curr = db[idx]
+                prev, curr = db['x'][idx]
     
                 prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
                 curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
@@ -57,6 +57,6 @@ class MaestroV3DataModule(L.LightningDataModule):
         self.dataset = MaestroV3DataSet(self.data_dir, self.mode)
 
     def train_dataloader(self):
-        nw = 11 # Shuld be tuned based on the CPU.
+        nw = 9 # Shuld be tuned based on the CPU.
         return DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
                          num_workers=nw)
