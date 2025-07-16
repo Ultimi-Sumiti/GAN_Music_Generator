@@ -8,9 +8,14 @@ import h5py
 class MaestroV3DataSet(Dataset):
 
     def __init__(self, file_path: str, mode: str = "single"):
-        # Save dataset file.
-        self.file = h5py.File(file_path, "r")['x']
-
+        # Store the file path
+        self.h5_path = file_path
+        # Save dataset length.
+        with h5py.File(self.h5_path, "r") as f:
+            # Assuming your data is stored in a group named 'x'
+            # and inside it, a dataset named 'images'.
+            # Adjust ['x']['images'] if your HDF5 structure is different.
+            self.length = len(f['x'])
         # Mode can be either single or pair.
         assert mode == "single" or mode == "pair"
 
@@ -18,28 +23,28 @@ class MaestroV3DataSet(Dataset):
         self.mode = mode
 
     def __len__(self):
-        return len(self.file)
+        return self.length
 
     def __getitem__(self, idx):
-
-        if self.mode == "single":
-            # MODEL 1
-            sample = self.file[idx]
-            sample = torch.tensor(sample, dtype=torch.float32) # [128, 16]
-            sample = sample.unsqueeze(0) # [1, 128, 16]
-            return sample
-
-        else:
-            # MODEL 2
-            prev, curr = self.file[idx]
-
-            prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
-            curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
-
-            prev = prev.unsqueeze(0) # [1, 128, 16]
-            curr = curr.unsqueeze(0) # [1, 128, 16]
-            
-            return prev, curr
+        with h5py.File(self.h5_path, 'r') as db:
+            if self.mode == "single":
+                # MODEL 1
+                sample = db['x'][idx]
+                sample = torch.tensor(sample, dtype=torch.float32) # [128, 16]
+                sample = sample.unsqueeze(0) # [1, 128, 16]
+                return sample
+    
+            else:
+                # MODEL 2
+                prev, curr = db[idx]
+    
+                prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
+                curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
+    
+                prev = prev.unsqueeze(0) # [1, 128, 16]
+                curr = curr.unsqueeze(0) # [1, 128, 16]
+                
+                return prev, curr
 
 
 # Define the meastro DataLoader.
@@ -55,6 +60,6 @@ class MaestroV3DataModule(L.LightningDataModule):
         self.dataset = MaestroV3DataSet(self.data_dir, self.mode)
 
     def train_dataloader(self):
-        nw = 9 # Shuld be tuned based on the CPU.
+        nw = 11 # Shuld be tuned based on the CPU.
         return DataLoader(self.dataset, batch_size=self.batch_size, shuffle=True,
                          num_workers=nw)
