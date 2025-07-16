@@ -88,8 +88,8 @@ class Generator(nn.Module):
             nn.LeakyReLU() 
         ) 
         self.conv4_cond = nn.Sequential(
-            nn.Conv2d(in_channels=256, out_channels=1, kernel_size=(1,2), stride=2),
-            nn.BatchNorm2d(1), # TO CHECK TODO
+            nn.Conv2d(in_channels=256, out_channels=256, kernel_size=(1,2), stride=2),
+            nn.BatchNorm2d(256), # TO CHECK TODO
             nn.LeakyReLU() 
         )
         
@@ -107,18 +107,18 @@ class Generator(nn.Module):
             #nn.Unflatten(1, (1, 128, 2)) 
             #nn.Unflatten(1, (2, 1, 128)) 
             #nn.Unflatten(1, (128, 2, 1)) 
-            #nn.Unflatten(1, (128, 1, 2)) 
+            nn.Unflatten(1, (128, 1, 2)) 
             #nn.Unflatten(1, (2, 128, 1)) 
             #nn.Unflatten(1, (1, 2, 128)) 
            
-            # Compressed layer
-            nn.Linear(in_features=256, out_features=2),
-            nn.LeakyReLU(), 
-            # TO CHECK TODO
+            ## Compressed layer
+            #nn.Linear(in_features=256, out_features=2),
+            #nn.LeakyReLU(), 
+            ## TO CHECK TODO
 
             
-            # Reshape torch.rand(N, 2) --> torch.rand(N, 1 , 1 , 2)
-            nn.Unflatten(1,(1 , 1 , 2))
+            ## Reshape torch.rand(N, 2) --> torch.rand(N, 1 , 1 , 2)
+            #nn.Unflatten(1,(1 , 1 , 2))
         )
 
 
@@ -127,7 +127,7 @@ class Generator(nn.Module):
         self.transp_conv1 = nn.Sequential(
             # Default: padding=0, output_padding=0,  dilation=1
             
-            nn.ConvTranspose2d(in_channels=2, out_channels=256, kernel_size=(1,2), stride=2),
+            nn.ConvTranspose2d(in_channels=384, out_channels=256, kernel_size=(1,2), stride=2),
             nn.BatchNorm2d(256),
             nn.LeakyReLU()
         ) 
@@ -158,34 +158,50 @@ class Generator(nn.Module):
         x = x[0]
 
         # Process the previous generated sample in the Conditioner network
-        cond1 = self.conv1_cond(prev_x)
-        cond2 = self.conv2_cond(cond1)
-        cond3 = self.conv3_cond(cond2)
-        cond4 = self.conv4_cond(cond3)
+        # First number is the expected according to the paper, second number the one according to be consistent with the implementation
+        cond1 = self.conv1_cond(prev_x)         # ([bs, 256, 1, 16])     # ([bs, a, 1, 16])
+        #print("Dimensione cond1", cond1.size())
+        cond2 = self.conv2_cond(cond1)          # ([bs, 256, 1, 8])      # ([bs, a, 1, 8])
+        #print("Dimensione cond2", cond2.size())
+        cond3 = self.conv3_cond(cond2)          # ([bs, 256, 1, 4])      # ([bs, a, 1, 4])
+        #print("Dimensione cond3", cond3.size())
+        cond4 = self.conv4_cond(cond3)          # ([bs, 1, 1, 2]) (before fixing)  #([bs, 256, 1, 2])    #  ([bs, a, 1, 2])
+        #print("Dimensione cond4", cond4.size())
 
-        y = self.fc_net(x)
+        # At the end we must have that a + b = c , where b is the dim of channel transp. conv layer, and c is the sum
+        # between conditioner layer channel (a) and (b)
+
+        y = self.fc_net(x)                                                          # ([bs, 128, 1, 2])
 
         # Concatenate conv4 conditioner with y (:= output tensor of fc_net) 
-        #print("y and cond4 before the first concat", y.size())
-        #print("\n", cond4.size())
-        y = conv_prev_concat(y, cond4)
+        #print("y before the first concat", y.size())
+        
+        y = conv_prev_concat(y, cond4)                                              # ([bs, 384, 1, 2])
         #print("\n after first conditional concat:", y.size())
-        y = self.transp_conv1(y)
+        y = self.transp_conv1(y)                                                    ## ([bs, 256, 1, 4])
         
         # Concatenate conv3 conditioner with y (:= output tensor of transp_conv1)
-        y = conv_prev_concat(y, cond3)
-        y = self.transp_conv2(y)
+        #print("y before the second concat", y.size())
+        y = conv_prev_concat(y, cond3)                                              # ([bs, 512, 1, 4])
+        #print("\n after second conditional concat:", y.size()) 
+        y = self.transp_conv2(y)                                                    ## ([bs, 256, 1, 8])
 
         # Concatenate conv2 conditioner with y (:= output tensor of transp_conv2)
-        y = conv_prev_concat(y, cond2)
-        y = self.transp_conv3(y)
+        #print("y before the third concat", y.size())
+        y = conv_prev_concat(y, cond2)                                              # ([bs, 512, 1, 8])
+        #print("\n after third conditional concat:", y.size()) 
+        y = self.transp_conv3(y)                                                    ## ([bs, 256, 1, 16])
 
         # Concatenate conv1 conditioner with y (:= output tensor of transp_conv3)
-        y = conv_prev_concat(y, cond1)
-        y = self.transp_conv4(y)
+        #print("y before the fourth concat", y.size())
+        y = conv_prev_concat(y, cond1)                                              # ([bs, 512, 1, 16])
+        #print("\n after fourth conditional concat:", y.size()) 
+        y = self.transp_conv4(y)                                                    ## ([bs, 1, 128, 16])
+        
+        #print("\n y after last transp conv (4)", y.size())
 
-
-        y = self.monophonic(y)
+        y = self.monophonic(y)                                                      # ([bs, 1, 128, 16])
+        #print("\n y after monophonic", y.size())
         #assert (y <= 1).all(), "Found a value bigger than one"
         return y
 
@@ -313,6 +329,7 @@ class Discriminator(nn.Module):
 #        # Apply the actual exponential for computing the score:
 #        c = torch.exp(-M_diff_mod)
 #
+    
 #        # To compute the output we need to compute the sum along the first dimension of the matrices
 #        scores = torch.sum(c, dim = 1)
 #
@@ -523,20 +540,25 @@ class GAN(L.LightningModule):
 
 
 # Tester
-#if __name__ == "__main__": 
-#    
-#    model = Generator(100)
-#    model.eval() # Set to evaluation mode to test, othewise BatchNorm can't work
-#
-#    z = torch.randn(1,100)
-#    print(z)
-#    print(z.size())
-#
-#    conv_x = torch.zeros(1,1,128,16)
-#    print(conv_x)
-#    # Call to forward of the generator
-#    y = model(z,conv_x)
-#    print(y)
+if __name__ == "__main__": 
+    
+    model = Generator(100)
+    model.eval() # Set to evaluation mode to test, othewise BatchNorm can't work
+
+    # Note, is IMPORTANT that conv_x and z have the same BATCH_SIZE
+    z = torch.randn(5,100)
+    print(z)
+    print(z.size())
+
+    conv_x = torch.zeros(5,1,128,16)
+    print(conv_x)
+
+    # For how is implemented the dataset 2 we need to pass noise + prev as a pair
+    pair = (z,conv_x)
+
+    # Call to forward of the generator
+    y = model(pair)
+    print(y)
 
 
         
