@@ -345,8 +345,8 @@ class GAN(L.LightningModule):
         b2: float = 0.999,
 
         # Feature loss params.
-        lambda_1 = 1,
-        lambda_2 = 0.1,
+        lambda_1 = 0.1,
+        lambda_2 = 1,
 
         # Number of updates per iteration.
         gen_updates: int = 1,
@@ -355,6 +355,8 @@ class GAN(L.LightningModule):
         apply_mbd: bool = False,
         mbd_B_dim: int = 10,
         mbd_C_dim: int = 5,
+
+        a: int = 16,
         
         # Minibatch size.
         batch_size: int = BATCH_SIZE,
@@ -372,7 +374,7 @@ class GAN(L.LightningModule):
 
         # Newtorks definition(Generator + Discriminator)
         # data_shape = (channels, width, height)
-        self.generator = Generator(latent_dim)
+        self.generator = Generator(latent_dim, a=a)
         self.discriminator = Discriminator(
             apply_mbd=apply_mbd,
             mbd_B_dim=mbd_B_dim,
