@@ -1,0 +1,13 @@
+a: 120
+apply_mbd: false
+b1: 0.6685047603190793
+b2: 0.9570758815656579
+batch_size: 16
+dis_updates: 4
+gen_updates: 1
+lambda_1: 0.5571400649008067
+lambda_2: 0.36707966570014705
+latent_dim: 94
+lr: 1.3422089190108735e-05
+mbd_B_dim: 28
+mbd_C_dim: 21
