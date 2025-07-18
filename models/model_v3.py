@@ -19,9 +19,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 from utils.architectural_utils import *
 
-
-
-# model_v2 is used to generate melodies conditioned on previous notes
+# model_v3 is used to generate melodies conditioned on previous notes and conditioned on underlying chords
 
 # GENERATOR ARCHITECTHURE
 class Generator(nn.Module):
@@ -38,7 +36,7 @@ class Generator(nn.Module):
        
         self.transp_layer_size = self.a + w_size
 
-        # Conditioner CNN
+        # Conditioner CNN in questo modelv_3 si può decidere se fare l' iniezione solo nell ultimo layer
         self.conv1_cond = nn.Sequential(
             nn.Conv2d(in_channels=1 , out_channels=a, kernel_size=(128,1), stride=1),
             nn.BatchNorm2d(a),
@@ -127,25 +125,28 @@ class Generator(nn.Module):
 
         # Concatenate conv4 conditioner with y (:= output tensor of fc_net) 
         #print("\ny after the MLP", y.size())
-        
+        y = chord_concat()
         y = prev_concat(y, cond4)                                              # ([bs, a + w_size, 1, 2])
         #print("\ny after first conditional concat:", y.size())
         y = self.transp_conv1(y)                                                    ## ([bs, w_size, 1, 4])
         
         # Concatenate conv3 conditioner with y (:= output tensor of transp_conv1)
         #print("y after the first transp conv", y.size())
+        y = chord_concat()
         y = prev_concat(y, cond3)                                              # ([bs, a + w_size, 1, 4])
         #print("\ny after second conditional concat:", y.size()) 
         y = self.transp_conv2(y)                                                    ## ([bs, w_size, 1, 8])
 
         # Concatenate conv2 conditioner with y (:= output tensor of transp_conv2)
         #print("y after the second transp conv", y.size())
+        y = chord_concat()
         y = prev_concat(y, cond2)                                              # ([bs, a + w_size, 1, 8])
         #print("\ny after third conditional concat:", y.size()) 
         y = self.transp_conv3(y)                                                    ## ([bs, w_size, 1, 16])
 
         # Concatenate conv1 conditioner with y (:= output tensor of transp_conv3)
         #print("y after the third transp conv", y.size())
+        y = chord_concat()
         y = prev_concat(y, cond1)                                              # ([bs, a + w_size, 1, 16])
         #print("\ny after fourth conditional concat:", y.size()) 
         y = self.transp_conv4(y)                                                    ## ([bs, 1, 128, 16])
@@ -207,6 +208,8 @@ class Discriminator(nn.Module):
     
     # Override of the forward method
     def forward(self, x, feature_out=False):
+        
+        y = chord_concat()
         y = self.conv_net1(x)
 
         # Needed for the feature loss in GAN training.
@@ -215,6 +218,7 @@ class Discriminator(nn.Module):
 
         # If we apply minibatch discrimination.
         if self.apply_mbd:
+            y = chord_concat() # Da controllare nel paper non e scritto nell implementazione loro si 
             features_flattened = self.conv_net2(y) 
     
             mbd_output = self.bd_net(features_flattened) 
@@ -225,7 +229,9 @@ class Discriminator(nn.Module):
 
         # No minibatch discrimination is applied.
         else:
+            y = chord_concat() # Da controllare nel paper non e scritto nell implementazione loro si 
             y = self.conv_net2(y)
+
             y = self.fc_net(y)
         
         return y
