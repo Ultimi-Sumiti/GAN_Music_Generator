@@ -12,9 +12,6 @@ from IPython import display
 from torch.autograd import Function, Variable
 from torch.nn.parameter import Parameter
 
-# Define batch size.
-BATCH_SIZE = 32
-
 class MonophonicSTE(Function):
     @staticmethod
     def forward(ctx, x):
@@ -41,7 +38,17 @@ class MonophonicLayer(nn.Module):
         # but in backward the grad w.r.t. x is grad_output (identity).
         return MonophonicSTE.apply(x)
 
-# Remember a tensor with pytorch is composed as: (N x C x H x W) if is a 3d tensor
+
+# Used to init the weights of Discriminator and Generator.
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.xavier_uniform_(m.weight.data)
+    if classname.find('Linear') != -1:
+        nn.init.xavier_uniform_(m.weight.data)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.2)
+        nn.init.constant_(m.bias.data, 0)
 
 # Generator  Network
 class Generator(nn.Module):
@@ -55,35 +62,27 @@ class Generator(nn.Module):
             nn.Linear(in_features= input_size, out_features= 1024),
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(),
-            nn.Linear(in_features=1024, out_features=512),
-            nn.BatchNorm1d(512),
+            nn.Linear(in_features=1024, out_features=256),
+            nn.BatchNorm1d(256),
             nn.LeakyReLU(),
-            
-            # nn.Unflatten(1, (1, 256, 2)) 
-           
-            # Compressed layer
-            nn.Linear(in_features=512, out_features=2),
-            nn.LeakyReLU(), 
-            # Reshape torch.rand(N, 2) --> torch.rand(N, 1 , 1 , 2)
-            nn.Unflatten(1,(1 , 1 , 2))
-
+            nn.Unflatten(1, (128 , 1 , 2))
         )
 
         self.transp_conv_net = nn.Sequential(
             # Default: padding=0, output_padding=0,  dilation=1
-            nn.ConvTranspose2d(in_channels=1, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(1,2), stride=2),
+            nn.BatchNorm2d(128),
             nn.LeakyReLU(), 
             
-            nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(1,2), stride=2),
+            nn.BatchNorm2d(128),
             nn.LeakyReLU(), 
             
-            nn.ConvTranspose2d(in_channels=256, out_channels=256, kernel_size=(1,2), stride=2),
-            nn.BatchNorm2d(256),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(1,2), stride=2),
+            nn.BatchNorm2d(128),
             nn.LeakyReLU(), 
             
-            nn.ConvTranspose2d(in_channels=256, out_channels=1, kernel_size=(128,1), stride=1),
+            nn.ConvTranspose2d(in_channels=128, out_channels=1, kernel_size=(128,1), stride=1),
             nn.LeakyReLU(), 
             #nn.Sigmoid()
         )
@@ -251,7 +250,8 @@ class GAN(L.LightningModule):
         #height,
 
         # Learning rate (to tune) 
-        lr: float = 0.0002,
+        lr_d: float = 0.0002,
+        lr_g: float = 0.0002,
         # Adam optimizer params (to tune)
         b1: float = 0.5,
         b2: float = 0.999,
@@ -268,8 +268,6 @@ class GAN(L.LightningModule):
         minibatch_B: int = 10,
         minibatch_C: int = 5,
 
-        # Minibatch size
-        batch_size: int = BATCH_SIZE,
         **kwargs,
     ):
         # Heridarety: to initialize correctly the superclass 
@@ -416,12 +414,16 @@ class GAN(L.LightningModule):
         pass
 
     def configure_optimizers(self) :
-        lr = self.hparams.lr
+        self.generator.apply(weights_init)
+        self.discriminator.apply(weights_init)
+        
+        lr_g = self.hparams.lr_g
+        lr_d = self.hparams.lr_d
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
-        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr_g, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr_d, betas=(b1, b2))
         return [opt_g, opt_d], []
 
     # It shuld be on_validation_epoch_end
