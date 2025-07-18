@@ -150,6 +150,7 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(in_channels=self.transp_layer_size, out_channels=1, kernel_size=(w_size,1), stride=1),
             #nn.BatchNorm2d(1), # TO CHECK TODO
             nn.LeakyReLU()
+            #nn.Sigmoid()
         )
             
         self.monophonic = MonophonicLayer()
@@ -219,13 +220,13 @@ class Discriminator(nn.Module):
 
         self.conv_net1 = nn.Sequential(
             # Default: padding=0,  dilation=1
-            nn.Conv2d(in_channels=1, out_channels=14, kernel_size=(128,2), stride=2),
+            nn.Conv2d(in_channels=1, out_channels=24, kernel_size=(128,2), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
         )
         
         self.conv_net2 = nn.Sequential(
-            nn.Conv2d(in_channels=14, out_channels=77, kernel_size=(1,4), stride=2),
+            nn.Conv2d(in_channels=24, out_channels=77, kernel_size=(1,3), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
 
@@ -338,7 +339,8 @@ class GAN(L.LightningModule):
         latent_dim: int = 100,
         
         # Learning rate.
-        lr: float = 0.0002,
+        lr_d: float = 0.0002,
+        lr_g: float = 0.0002,
         
         # Adam optimizer params.
         b1: float = 0.5,
@@ -352,12 +354,13 @@ class GAN(L.LightningModule):
         gen_updates: int = 1,
         dis_updates: int = 1,
 
+        # Minibatch discrimination.
         apply_mbd: bool = False,
         mbd_B_dim: int = 10,
         mbd_C_dim: int = 5,
 
         a: int = 16,
-        
+
         # Minibatch size.
         batch_size: int = BATCH_SIZE,
         **kwargs,
@@ -380,9 +383,6 @@ class GAN(L.LightningModule):
             mbd_B_dim=mbd_B_dim,
             mbd_C_dim=mbd_C_dim
         )
-
-        # Used to see intermediate outputs after each epoch.
-        #self.validation_z = torch.randn(10, latent_dim)
 
     # Forward step computed     
     def forward(self, x):
@@ -416,7 +416,7 @@ class GAN(L.LightningModule):
         
             valid = torch.ones(imgs.size(0), 1) * 0.9
             valid = valid.type_as(imgs)
-        
+
             # First term of discriminator loss.
             real_loss = self.adversarial_loss(
                     self.discriminator(imgs),
@@ -425,7 +425,7 @@ class GAN(L.LightningModule):
         
             fake = torch.zeros(imgs.size(0), 1)
             fake = fake.type_as(imgs)
-        
+            
             # Second term of discriminator loss.
             fake_loss = self.adversarial_loss(
                     self.discriminator(self.generated_imgs.detach()),
@@ -434,7 +434,7 @@ class GAN(L.LightningModule):
         
             # Total discriminator loss.
             d_loss = real_loss + fake_loss
-        
+
             # Discriminator training.
             self.log("d_loss", d_loss, prog_bar=True)
             self.manual_backward(d_loss)
@@ -451,6 +451,7 @@ class GAN(L.LightningModule):
             
             # Activate Generator optimizer. 
             self.toggle_optimizer(optimizer_g)
+            
             # Generate images.
             self.generated_imgs = self.generator((z, prev))
             
@@ -463,13 +464,13 @@ class GAN(L.LightningModule):
             valid = valid.type_as(imgs)
         
             # Compute the loss function.
-            mean_img_from_batch = torch.mean(imgs)
-            mean_img_from_g = torch.mean(self.generated_imgs)
+            mean_img_from_batch = torch.mean(imgs, 0)
+            mean_img_from_g = torch.mean(self.generated_imgs, 0)
             regularizer_1 = torch.norm(mean_img_from_batch - mean_img_from_g) ** 2
         
             # TOFIX: should we detach??
-            real_features = torch.mean(self.discriminator(imgs, feature_out=True))
-            fake_features = torch.mean(self.discriminator(self.generated_imgs, feature_out=True))
+            real_features = torch.mean(self.discriminator(imgs, feature_out=True), 0)
+            fake_features = torch.mean(self.discriminator(self.generated_imgs, feature_out=True), 0)
             regularizer_2 = torch.norm(real_features - fake_features) ** 2
             
             g_adversarial_loss = self.adversarial_loss(
@@ -481,7 +482,7 @@ class GAN(L.LightningModule):
             g_loss = (self.hparams.lambda_1 * regularizer_1 
                       + self.hparams.lambda_2 * regularizer_2 
                       + g_adversarial_loss)
-            
+
             # Generator training.
             self.log("g_loss", g_loss, prog_bar=True) # Log loss.
             self.manual_backward(g_loss) # Toggle.
@@ -497,41 +498,14 @@ class GAN(L.LightningModule):
         self.generator.apply(weights_init)
         self.discriminator.apply(weights_init)
         
-        lr = self.hparams.lr
+        lr_g = self.hparams.lr_g
+        lr_d = self.hparams.lr_d
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
-        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr, betas=(b1, b2))
+        opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr_g, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr_d, betas=(b1, b2))
         return [opt_g, opt_d], []
-
-    ## It shuld be on_validation_epoch_end
-    #def on_train_epoch_end(self) :
-    #    # Clear ouput.
-    #    display.clear_output(wait=True)
-    #    
-    #    z = self.validation_z.type_as(self.generator.fc_net[0].weight)
-#
-    #    # Generate images.
-    #    sample_imgs = self(z).detach().cpu()
-#
-    #    # Grid dimensions.
-    #    cols = 5
-    #    rows = 2
-#
-    #    # Create the figure.
-    #    fig, axes = plt.subplots(rows, cols, figsize=(cols*4, rows*2))
-    #    axes = axes.flatten()
-    #    for idx, (ax, img) in enumerate(zip(axes, sample_imgs)):
-    #        img_np = img.squeeze().numpy()
-    #        im = ax.imshow(img_np, aspect='auto', origin='lower', cmap='hot')
-    #        ax.set_title(f"#{idx}")
-    #        fig.colorbar(im, ax=ax, label='Velocity')
-#
-    #    # Plot the figure.
-    #    plt.tight_layout()
-    #    plt.show()
-
 
 
 # Tester to see if the dimensions are correct
@@ -555,12 +529,3 @@ if __name__ == "__main__":
     # Call to forward of the generator
     y = model(pair)
     #print(y)
-
-
-        
-
-        
-
-
-
-        
