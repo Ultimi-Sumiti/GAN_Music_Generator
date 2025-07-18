@@ -8,11 +8,6 @@ import torch.nn as nn
 #import lightning as L
 import pytorch_lightning as L
 
-# Used to print during training generated images.
-from torchvision.utils import make_grid
-import matplotlib.pyplot as plt
-from IPython import display
-
 # Import the utils
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
@@ -168,13 +163,13 @@ class Discriminator(nn.Module):
 
         self.conv_net1 = nn.Sequential(
             # Default: padding=0,  dilation=1
-            nn.Conv2d(in_channels=1, out_channels=14, kernel_size=(128,2), stride=2),
+            nn.Conv2d(in_channels=1, out_channels=24, kernel_size=(128,2), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
         )
         
         self.conv_net2 = nn.Sequential(
-            nn.Conv2d(in_channels=14, out_channels=77, kernel_size=(1,3), stride=2),
+            nn.Conv2d(in_channels=24, out_channels=77, kernel_size=(1,3), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
 
