@@ -154,6 +154,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# vs-code
+.DS_Store
+
 # pytype static type analyzer
 .pytype/
 
