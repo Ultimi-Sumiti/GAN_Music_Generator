@@ -74,7 +74,6 @@ def chord_concat(x,y):
     # Concatenate alogn the 1 dimesnion of the tensors [batch_size * (C_x + C_y) * Height * Weight]
     return torch.cat((x, y2),1)
     
-    return
 
 
 class MinibatchDiscrimination(nn.Module):
