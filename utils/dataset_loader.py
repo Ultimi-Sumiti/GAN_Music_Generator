@@ -3,6 +3,23 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 import h5py
+import random
+import numpy as np
+
+# Random sampler from dataset.
+def random_batch_sampler(dataset: Dataset, size: int):
+    prevs = []
+    currs = []
+    for _ in range(size):
+        rnd_idx = random.randint(0, len(dataset)-1)
+        sample = dataset[rnd_idx]
+        prev, curr = sample
+        prevs.append(prev)
+        currs.append(curr)
+
+    batch = torch.from_numpy(np.array([prevs, currs]))
+    return batch
+    
 
 # Define the MaestroV3DataSet.
 class MaestroV3DataSet(Dataset):
