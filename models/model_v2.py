@@ -304,7 +304,11 @@ class GAN(L.LightningModule):
 
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr_g, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr_d, betas=(b1, b2))
-        return [opt_g, opt_d], []
+
+        scheduler_g = torch.optim.lr_scheduler.StepLR(opt_g, step_size=4000, gamma=0.7)
+        scheduler_d = torch.optim.lr_scheduler.StepLR(opt_d, step_size=4000, gamma=0.7)
+        return ([opt_g, opt_d], [scheduler_g, scheduler_d])
+        
 
     # Gan training algorithm    
     def training_step(self, batch):
@@ -332,26 +336,34 @@ class GAN(L.LightningModule):
             valid = valid.type_as(curr)
 
             # maximize log(D(x)) + log(1 - D(G(z)))
+            real_pred = self.discriminator(curr)
+            fake_pred = self.discriminator(self.generated_curr.detach())
+            
             # First term of discriminator loss.
-            real_loss = self.adversarial_loss(
-                    self.discriminator(curr),
-                    valid
-            )
+            real_loss = self.adversarial_loss(real_pred, valid)
         
             fake = torch.zeros(curr.size(0), 1)
             fake = fake.type_as(curr)
             
             # Second term of discriminator loss.
-            fake_loss = self.adversarial_loss(
-                    self.discriminator(self.generated_curr.detach()),
-                    fake
-            )
+            fake_loss = self.adversarial_loss(fake_pred, fake)
             
             # Total Discriminator loss.
             d_loss = real_loss + fake_loss
 
-            # Discriminator training iteration step.
+            # Compute accuracy.
+            acc_real = torch.sigmoid(real_pred)
+            acc_real = acc_real.mean()
+
+            acc_fake = torch.ones_like(fake_pred) - torch.sigmoid(fake_pred)
+            acc_fake = acc_fake.mean()
+
+            # Log info.
             self.log("d_loss", d_loss, prog_bar=True)
+            self.log("acc_real", acc_real, prog_bar=True)
+            self.log("acc_fake", acc_fake, prog_bar=True)
+            
+            # Discriminator training iteration step.
             self.manual_backward(d_loss)
             optimizer_d.step()
             optimizer_d.zero_grad()
@@ -369,9 +381,6 @@ class GAN(L.LightningModule):
             
             # Generate images. # this could be also non self (modify) 
             self.generated_curr = self.generator((z, prev))
-            
-            # Log sampled images.
-            # TODO
             
             # ground truth result (ie: all fake)
             valid = torch.ones(curr.size(0), 1)
@@ -404,8 +413,6 @@ class GAN(L.LightningModule):
             optimizer_g.step() # Update weights.
             optimizer_g.zero_grad() # Avoid accumulation of gradients.
             self.untoggle_optimizer(optimizer_g)
-
-
 
 
 
