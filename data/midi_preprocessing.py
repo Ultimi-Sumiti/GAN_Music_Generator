@@ -2,6 +2,9 @@ import numpy as np
 import pretty_midi
 import matplotlib.pyplot as plt
 
+MAX_PIANO_NOTES = 20
+MIN_PIANO_NOTES = 5
+
 def fill_melody_pauses(piano_roll):
     # The filled piano roll.
     filled_roll = piano_roll.copy()
@@ -107,6 +110,78 @@ def extract_melody(midi, fs):
 
     return melody_roll
 
+
+def compute_variance(midi, attribute) -> float:
+    values = []
+
+    
+    for instrument in midi.instruments:
+        for n in instrument.notes:
+            if attribute == "velocity":
+                values.append(n.velocity)
+            
+            if attribute == "duration":
+                values.append(n.end - n.start)
+            
+            if attribute == "pitch":
+                values.append(n.pitch)
+    if not values: 
+        return 0.0
+        
+    return np.var(values)
+    
+def midi_selection(midi, fs) -> bool:
+    """
+        This function apply a simple criteria based on the amount of notes played in the same instant along  
+        the midi (not the melody)
+        Args: 
+            -midi: pretty_midi
+            -fs:   int
+    """
+    #Get the full piano roll from midi object
+    full_roll = midi.get_piano_roll(fs = fs)
+
+    # Now we check how many notes are played 
+    notes_per_time_frame = np.sum(full_roll > 0, axis=0)
+
+    max_polyphony = np.max(notes_per_time_frame) if notes_per_time_frame.size > 0 else 0
+    
+    # Logic behind midi selection
+    if max_polyphony > MIN_PIANO_NOTES and max_polyphony < MAX_PIANO_NOTES:
+        return True
+    return False
+
+def melody_selection(melody_roll):
+    """
+        This function apply a simple criteria based on the amount of notes played in the initial 
+        melody
+        Args: 
+            -melody_roll: piano_roll
+    """
+    notes, frames = melody_roll.shape
+
+    unique_notes = set()
+    
+    for f in range(frames):
+        for n in range(notes):
+            if melody_roll[n, f] > 0:
+                if n not in unique_notes:
+                    unique_notes.add(n)
+    if len(unique_notes) > 5 and len(unique_notes) < 15:
+        return True
+    return False
+
+def octave_sum(melody_roll):
+    notes, frames = melody_roll.shape
+    for f in range(frames):
+        for n in range(notes-1):
+            melody_roll[n + 1,f] = melody_roll[n,f]
+        melody_roll[0,f] = melody_roll[notes - 1, f] 
+        
+    melody_roll = normalize_melody_roll(melody_roll, lb=60, ub=83)
+    
+    return melody_roll
+    
 
 # Construct the pretty midi object starting from the given piano roll.
 # Returns the pretty midi object.
