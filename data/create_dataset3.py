@@ -79,15 +79,19 @@ def extract_samples(dir_path, samples, labels):
     
         # Split into samples of size 128xCOLS_PER_BAR.
         splitted = []
+        splitted_full = []
         splits = int(melody_roll.shape[1] / COLS_PER_BAR)
         for i in range(splits):
             tmp = i * COLS_PER_BAR
             sample = melody_roll[:, tmp:tmp+COLS_PER_BAR]
+            full_sample = piano_roll[:, tmp:tmp+COLS_PER_BAR]
             splitted.append(sample)
+            splitted_full.append(full_sample)
 
         # Create the pair of previous and current bars.
         for i in range(1, len(splitted)):
-            main_chord = main_chords(splitted[i]).astype(bool)
+            main_chord = main_chords(splitted_full[i]).astype(bool)
+            print(main_chord)
             labels.append(main_chord)
             pair = splitted[i-1], splitted[i]
             samples.append(pair)
