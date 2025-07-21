@@ -17,7 +17,7 @@ class MaestroV3DataSet(Dataset):
         with h5py.File(self.h5_path, "r") as f:
             self.length = len(f['x'])
         # Mode can be either single or pair.
-        assert mode == "single" or mode == "pair"
+        assert mode == "single" or mode == "pair" or mode == "triplet"
 
         # Save mode.
         self.mode = mode
@@ -34,7 +34,7 @@ class MaestroV3DataSet(Dataset):
                 sample = sample.unsqueeze(0) # [1, 128, 16]
                 return sample
     
-            else:
+            elif self.mode == "pair":
                 # MODEL 2
                 prev, curr = db['x'][idx]
     
@@ -45,7 +45,21 @@ class MaestroV3DataSet(Dataset):
                 curr = curr.unsqueeze(0) # [1, 128, 16]
                 
                 return prev, curr
+                
+            else: 
+                # MODEL 3
+                prev, curr = db['x'][idx]
+                chord = db['y'][idx]
+    
+                prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
+                curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
+                chord = torch.tensor(chord, dtype=torch.float32) # [13]
 
+                prev = prev.unsqueeze(0) # [1, 128, 16]
+                curr = curr.unsqueeze(0) # [1, 128, 16]
+                chord = chord.unsqueeze(1).unsqueeze(1) # [13, 1, 1]
+
+                return prev, curr, chord
 
 # Define the MaestroV3DataSet - GPU version (with preload).
 # The entire dataset is entirely preloaded in the GPU.
