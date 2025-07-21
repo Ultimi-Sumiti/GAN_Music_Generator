@@ -31,10 +31,11 @@ class Generator(nn.Module):
 
         # Channels of the X in input, in our case it's = 1
         self.input_size = input_size
-        self.pitch_size = w_size
+        self.pitch_size = w_size # Si potrebbe gia mettere 128 tanto è fissa TODO
+        self.y_size = 13
         self.a = a
        
-        self.transp_layer_size = self.a + w_size
+        self.transp_layer_size = self.a + self.pitch_size + self.y_size
 
         # Conditioner CNN in questo modelv_3 si può decidere se fare l' iniezione solo nell ultimo layer
         self.conv1_cond = nn.Sequential(
@@ -62,7 +63,7 @@ class Generator(nn.Module):
         
         # MLP 
         self.fc_net = nn.Sequential(
-            nn.Linear(in_features= input_size, out_features= 1024),
+            nn.Linear(in_features=input_size, out_features=1024),
             nn.BatchNorm1d(1024),
             nn.LeakyReLU(),
             nn.Linear(in_features=1024, out_features=256),
@@ -102,8 +103,12 @@ class Generator(nn.Module):
 
     # Override of the forward method
     def forward(self, x):
-        # x is the noise, prev_x is the previously generated sample obtained from the pair of bars
-        # (prev, curr), in this case we feed the conditioner with the prev, while the discriminator with curr 
+        # x is the noise, prev_x is the previously generated sample obtained from the pair of bars, y is the chord on which
+        # we want to condition our melody generation
+        # (curr, prev, y), in this case we feed the conditioner with the prev, while the discriminator with curr 
+        # and we feed each layer of the transp conv of the generator with y, and also the first and second layer of the discriminator
+
+        y = x[2]
         prev_x = x[1]
         x = x[0]
 
@@ -121,42 +126,46 @@ class Generator(nn.Module):
         # At the end we must have that a + b = c , where b is the dim of channel transp. conv layer, and c is the sum
         # between conditioner layer channel (a) and (b)
 
-        y = self.fc_net(x)                                                          # ([bs, w_size, 1, 2])
+        o = self.fc_net(x)                                                          # ([bs, w_size, 1, 2])
 
-        # Concatenate conv4 conditioner with y (:= output tensor of fc_net) 
-        #print("\ny after the MLP", y.size())
-        y = chord_concat()
-        y = prev_concat(y, cond4)                                              # ([bs, a + w_size, 1, 2])
-        #print("\ny after first conditional concat:", y.size())
-        y = self.transp_conv1(y)                                                    ## ([bs, w_size, 1, 4])
+        # Concatenate conv4 conditioner with o (:= output tensor of fc_net) 
+        #print("\no after the MLP", o.size())
+        o = chord_concat(o, y)                                                      # ([bs, y_size + w_size, 1, 2]) 
+        #print("\no after the first chord concat", o.size())
+        o = prev_concat(o, cond4)                                                   # ([bs, y + a + w_size, 1, 2])
+        #print("o after first conditional concat:", o.size())
+        o = self.transp_conv1(o)                                                    ## ([bs, w_size, 1, 4])
         
-        # Concatenate conv3 conditioner with y (:= output tensor of transp_conv1)
-        #print("y after the first transp conv", y.size())
-        y = chord_concat()
-        y = prev_concat(y, cond3)                                              # ([bs, a + w_size, 1, 4])
-        #print("\ny after second conditional concat:", y.size()) 
-        y = self.transp_conv2(y)                                                    ## ([bs, w_size, 1, 8])
+        # Concatenate conv3 conditioner with o (:= output tensor of transp_conv1)
+        #print("o after the first transp conv", o.size())
+        o = chord_concat(o, y)                                                      # ([bs, y_size + w_size, 1 , 4])
+        #print("\no after the second chord concat", o.size())
+        o = prev_concat(o, cond3)                                                   # ([bs, y_size + a + w_size, 1, 4])
+        #print("o after second conditional concat:", o.size()) 
+        o = self.transp_conv2(o)                                                    ## ([bs, w_size, 1, 8])
 
-        # Concatenate conv2 conditioner with y (:= output tensor of transp_conv2)
-        #print("y after the second transp conv", y.size())
-        y = chord_concat()
-        y = prev_concat(y, cond2)                                              # ([bs, a + w_size, 1, 8])
-        #print("\ny after third conditional concat:", y.size()) 
-        y = self.transp_conv3(y)                                                    ## ([bs, w_size, 1, 16])
+        # Concatenate conv2 conditioner with o (:= output tensor of transp_conv2)
+        #print("o after the second transp conv", o.size())
+        o = chord_concat(o , y)                                                     # ([bs, y_size + w_size, 1 , 8])
+        #print("\no after the third chord concat", o.size())
+        o = prev_concat(o, cond2)                                                   # ([bs, y_size + a + w_size, 1, 8])
+        #print("o after third conditional concat:", o.size()) 
+        o = self.transp_conv3(o)                                                    ## ([bs, w_size, 1, 16])
 
-        # Concatenate conv1 conditioner with y (:= output tensor of transp_conv3)
-        #print("y after the third transp conv", y.size())
-        y = chord_concat()
-        y = prev_concat(y, cond1)                                              # ([bs, a + w_size, 1, 16])
-        #print("\ny after fourth conditional concat:", y.size()) 
-        y = self.transp_conv4(y)                                                    ## ([bs, 1, 128, 16])
+        # Concatenate conv1 conditioner with o (:= output tensor of transp_conv3)
+        #print("o after the third transp conv", o.size())
+        o = chord_concat(o , y)                                                     # ([bs, y_size + w_size, 1 , 16])
+        #print("\no after the fourth chord concat", o.size())
+        o = prev_concat(o, cond1)                                                   # ([bs, y_size + a + w_size, 1, 16])
+        #print("o after fourth conditional concat:", o.size()) 
+        o = self.transp_conv4(o)                                                    ## ([bs, 1, 128, 16])
         
-        #print("y after last transp conv (4)", y.size())
+        #print("o after last transp conv (4)", o.size())
 
-        y = self.monophonic(y)                                                      # ([bs, 1, 128, 16])
-        #print("\ny after monophonic", y.size())
-        #assert (y <= 1).all(), "Found a value bigger than one"
-        return y
+        o = self.monophonic(o)                                                      # ([bs, 1, 128, 16])
+        #print("\no after monophonic", o.size())
+        #assert (o <= 1).all(), "Found a value bigger than one"
+        return o
 
 
 # DISCRIMINATOR ARCHITECHTURE
@@ -166,16 +175,17 @@ class Discriminator(nn.Module):
 
         # True if one want to use minibatch discrimination.
         self.apply_mbd = apply_mbd
+        self.y_size = 13
 
         self.conv_net1 = nn.Sequential(
             # Default: padding=0,  dilation=1
-            nn.Conv2d(in_channels=1, out_channels=14, kernel_size=(128,2), stride=2),
+            nn.Conv2d(in_channels=1 + self.y_size, out_channels=14, kernel_size=(128,2), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
         )
         
         self.conv_net2 = nn.Sequential(
-            nn.Conv2d(in_channels=14, out_channels=77, kernel_size=(1,3), stride=2),
+            nn.Conv2d(in_channels=14 + self.y_size, out_channels=77, kernel_size=(1,3), stride=2),
             nn.LeakyReLU(), 
             nn.Dropout(0.3),
 
@@ -208,33 +218,47 @@ class Discriminator(nn.Module):
     
     # Override of the forward method
     def forward(self, x, feature_out=False):
-        
-        y = chord_concat()
-        y = self.conv_net1(x)
+
+        # x is the noise, y is the chord on which
+        # we want to condition our melody generation
+        # (curr, y), in this case we feed the conditioner with the prev, while the discriminator with curr 
+        # and we feed each layer of the transp conv of the generator with y, and also the first and second layer of the discriminator 
+        y = x[1]
+        x = x[0]
+
+        o = chord_concat(x, y)                                                      
+        #print("\no after the first chord concat", o.size())                            # ([bs, + y_size + 1 , 128, 16])
+        o = self.conv_net1(o)
+        #print("o after the first conv", o.size())                                      ## ([bs, + y_size + 1 , 1, 8])
 
         # Needed for the feature loss in GAN training.
         if feature_out:
-            return y
+            return o
 
         # If we apply minibatch discrimination.
         if self.apply_mbd:
-            y = chord_concat() # Da controllare nel paper non e scritto nell implementazione loro si 
-            features_flattened = self.conv_net2(y) 
-    
+            o = chord_concat(o, y) # Da controllare nel paper non e scritto nell implementazione loro si TODO    # ([bs, + y_size + 14 , 1, 8])    
+            #print("\no after the second chord concat (MB discriminator active)", o.size())
+            features_flattened = self.conv_net2(o)                                                               ## ([bs, 231]) 
+            #print("o after the second conv (MB discriminator active)", features_flattened.size())
             mbd_output = self.bd_net(features_flattened) 
     
             combined_features = torch.cat((features_flattened, mbd_output), dim=1) 
             
-            y = self.fc_net(combined_features)
+            o = self.fc_net(combined_features)                                                                   ## ([bs, 1])
+            #print("\no after the MLP", o.size()) 
 
         # No minibatch discrimination is applied.
         else:
-            y = chord_concat() # Da controllare nel paper non e scritto nell implementazione loro si 
-            y = self.conv_net2(y)
+            o = chord_concat(o, y) # Da controllare nel paper non e scritto nell implementazione loro si TODO    # ([bs, + y_size + 14 , 1, 8]) 
+            #print("\no after the second chord concat ", o.size())
+            o = self.conv_net2(o)                                                                                ## ([bs, 231])
+            #print("o after the second conv", o.size())
 
-            y = self.fc_net(y)
+            o = self.fc_net(o)                                                                                   ## ([bs, 1])
+            #print("\no after the MLP", o.size())
         
-        return y
+        return o
 
 # Merging all togheter to expolit, building the entire GAN architechture with the lightining module
 # As function of this class we can directly implement the training process
@@ -320,7 +344,7 @@ class GAN(L.LightningModule):
     # Gan training algorithm    
     def training_step(self, batch):
         # Batch images.
-        prev, curr = batch
+        prev, curr, y = batch
 
         # Define the optimizers.
         optimizer_g, optimizer_d = self.optimizers()
@@ -333,7 +357,7 @@ class GAN(L.LightningModule):
             z = z.type_as(curr)
         
             # Generate new images.
-            self.generated_curr = self.generator((z, prev))
+            self.generated_curr = self.generator((z, prev, y))
             
             # Activate Generator optimizer. 
             self.toggle_optimizer(optimizer_d)
@@ -345,7 +369,7 @@ class GAN(L.LightningModule):
             # maximize log(D(x)) + log(1 - D(G(z)))
             # First term of discriminator loss.
             real_loss = self.adversarial_loss(
-                    self.discriminator(curr),
+                    self.discriminator((curr, y)),
                     valid
             )
         
@@ -354,7 +378,7 @@ class GAN(L.LightningModule):
             
             # Second term of discriminator loss.
             fake_loss = self.adversarial_loss(
-                    self.discriminator(self.generated_curr.detach()),
+                    self.discriminator((self.generated_curr.detach(), y)),
                     fake
             )
             
@@ -379,7 +403,7 @@ class GAN(L.LightningModule):
             self.toggle_optimizer(optimizer_g)
             
             # Generate images. # this could be also non self (modify) 
-            self.generated_curr = self.generator((z, prev))
+            self.generated_curr = self.generator((z, prev, y))
             
             # Log sampled images.
             # TODO
@@ -395,12 +419,12 @@ class GAN(L.LightningModule):
             mean_img_from_g = torch.mean(self.generated_curr, 0)
             regularizer_1 = torch.norm(mean_img_from_batch - mean_img_from_g) ** 2
         
-            real_features = torch.mean(self.discriminator(curr, feature_out=True), 0)
-            fake_features = torch.mean(self.discriminator(self.generated_curr, feature_out=True), 0)
+            real_features = torch.mean(self.discriminator((curr, y), feature_out=True), 0)
+            fake_features = torch.mean(self.discriminator((self.generated_curr, y), feature_out=True), 0)
             regularizer_2 = torch.norm(real_features - fake_features) ** 2
             
             g_adversarial_loss = self.adversarial_loss(
-                self.discriminator(self.generated_curr),
+                self.discriminator((self.generated_curr, y)),
                 valid
             )
         
@@ -420,29 +444,46 @@ class GAN(L.LightningModule):
 
 
 
-# Tester to see if the dimensions are correct
+# Tester to see if the dimensions and matches between various layers are correct
 if __name__ == "__main__": 
     # Note we have to reason considering the w_size as fixed to 128 to modify the other params of the net
     # Generator(#dim of noise, #w_size of the image, in our case is always 128, #num of kernels of the conditioner layers)
-    model = Generator(100,128,25)
-    model.eval() # Set to evaluation mode to test, othewise BatchNorm can't work
+    model_g = Generator(100,128,25)
+    model_d = Discriminator(True)
+    model_g.eval() # Set to evaluation mode to test, othewise BatchNorm can't worktopic
+    model_d.eval() # Set to evaluation mode to test, othewise BatchNorm can't work
 
     # Note, is IMPORTANT that conv_x and z have the same BATCH_SIZE
     z = torch.randn(5,100)
     #print(z)
     #print(z.size())
 
+    # For the 2-D previous bar condition
     conv_x = torch.zeros(5,1,128,16)
     #print(conv_x)
-
-    # For how is implemented the dataset 2 we need to pass noise + prev as a pair
-    pair = (z,conv_x)
-
-    # Call to forward of the generator
-    y = model(pair)
+    # For the 1-D chord condition
+    y = torch.zeros(5,13,1,1)
     #print(y)
 
+    # ------- single GENERATOR -------
+    # For how is implemented the dataset 2 we need to pass noise + prev + y as a triplet for the generator
+    triplet = (z,conv_x,y)    
+    # Call to forward of the generator
+    print("\nOutput Generator")
+    o = model_g(triplet)
+    print(o)
+
+    # ------- single DISCRIMINATOR -------
+    # For how is implementet the dataset and the discriminator we need to pass fake_img (output of the generator) + y 1-D Condition vector
+    # as a pair to the discriminator
+    print("\nOutput Discriminator")
+    pair = (o,y)
+    o = model_d(pair)
+    print(o)
+
+    # ------- GAN -------
+    print("\nOutput GAN")
     model = GAN()
     
-    y = model(pair)
-    print(y)
+    o = model(triplet)
+    print(o)
