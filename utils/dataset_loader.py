@@ -80,7 +80,7 @@ class MaestroV3DataSet_GPU(Dataset):
 
         if mode == "single":
             # from [N, 128, 16] to  [N, 1, 128, 16].
-            self.dataset = torch.tensor(data, dtype=torch.float32).unsqueeze(1)
+            self.dataset = torch.tensor(dataset, dtype=torch.float32).unsqueeze(1)
             # Move to GPU.
             self.dataset = self.dataset.to(device)
         elif mode == "pair":
