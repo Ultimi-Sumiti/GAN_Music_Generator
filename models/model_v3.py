@@ -8,6 +8,7 @@ import torch.nn as nn
 #import lightning as L
 import pytorch_lightning as L
 
+
 # Used to print during training generated images.
 from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
@@ -259,6 +260,7 @@ class Discriminator(nn.Module):
             #print("\no after the MLP", o.size())
         
         return o
+        
 
 # Merging all togheter to expolit, building the entire GAN architechture with the lightining module
 # As function of this class we can directly implement the training process
@@ -315,7 +317,6 @@ class GAN(L.LightningModule):
             mbd_C_dim=mbd_C_dim
         )
 
-    
     # Forward step computed     
     def forward(self, x):
         return self.generator(x)
@@ -365,32 +366,38 @@ class GAN(L.LightningModule):
             # One-sided label smoothing
             valid = torch.ones(curr.size(0), 1) * 0.9
             valid = valid.type_as(curr)
-
+            
             # maximize log(D(x)) + log(1 - D(G(z)))
+            real_pred = self.discriminator((curr, y))
+            fake_pred = self.discriminator((self.generated_curr.detach(), y))
+
             # First term of discriminator loss.
-            real_loss = self.adversarial_loss(
-                    self.discriminator((curr, y)),
-                    valid
-            )
+            real_loss = self.adversarial_loss(real_pred, valid)
         
             fake = torch.zeros(curr.size(0), 1)
             fake = fake.type_as(curr)
             
             # Second term of discriminator loss.
-            fake_loss = self.adversarial_loss(
-                    self.discriminator((self.generated_curr.detach(), y)),
-                    fake
-            )
-            
+            fake_loss = self.adversarial_loss(fake_pred, fake)
+
             # Total Discriminator loss.
             d_loss = real_loss + fake_loss
 
             # Discriminator training iteration step.
-            self.log("d_loss", d_loss, prog_bar=True)
             self.manual_backward(d_loss)
             optimizer_d.step()
             optimizer_d.zero_grad()
             self.untoggle_optimizer(optimizer_d)
+            
+            # Compute confidence.
+            conf_real = torch.sigmoid(real_pred).mean()
+            conf_fake = 1 - torch.sigmoid(fake_pred).mean()
+
+            # Log info.
+            self.log("d_loss", d_loss, prog_bar=True)
+            self.log("conf_real", conf_real, prog_bar=True)
+            self.log("conf_fake", conf_fake, prog_bar=True)
+            
 
         ### GENERATOR ####
         for _ in range(self.hparams.gen_updates):
@@ -421,6 +428,7 @@ class GAN(L.LightningModule):
         
             real_features = torch.mean(self.discriminator((curr, y), feature_out=True), 0)
             fake_features = torch.mean(self.discriminator((self.generated_curr, y), feature_out=True), 0)
+            
             regularizer_2 = torch.norm(real_features - fake_features) ** 2
             
             g_adversarial_loss = self.adversarial_loss(
@@ -436,6 +444,11 @@ class GAN(L.LightningModule):
             # Generator training iteration step. 
             self.log("g_loss", g_loss, prog_bar=True) # Log loss.
             self.manual_backward(g_loss) # Toggle.
+            
+            # Compute gradient norm.
+            grad_norm = get_gradient_norm(self.generator)
+            self.log("grad_norm", grad_norm, prog_bar=True)
+            
             optimizer_g.step() # Update weights.
             optimizer_g.zero_grad() # Avoid accumulation of gradients.
             self.untoggle_optimizer(optimizer_g)
