@@ -1,119 +1,78 @@
 import pretty_midi
 import os
 import h5py
+import random
 from midi_preprocessing import *
 
 
-### GLOBAL VARIABLES ###
-# Define the number of cols per bar.
-COLS_PER_BAR = 16
-# Define the directory of the dataset.
-INPUT_DIR_PATH =[
-    "./raw/maestro-v3.0.0/splitted_2018",
-#    "./raw/maestro-v3.0.0/2017/",
-#    "./raw/maestro-v3.0.0/2015/",
-#    "./raw/maestro-v3.0.0/2014/"
-]
-
-# Define the output directory path.
-OUT_DIR_PATH = "./preprocessed/maestro-v3.0.0/dataset2/"
-# Define output file name.
-OUT_FILE_NAME = "dataset.h5"
+##############################################################################
+# GLOBAL VARIABLES
+##############################################################################
 
 
-def extract_samples(dir_path, samples, labels):
-    # Iterate through.
-    for filename in os.listdir(dir_path):
-    
-        # Skip non-midi files.
-        if not filename.endswith(".midi"):
-            continue
-    
-        # Open the midi file.
-        midi = pretty_midi.PrettyMIDI(os.path.join(dir_path, filename))
-    
-        # Define parameters.
-        bar_duration = get_bar_duration(midi)
-        fs = COLS_PER_BAR / bar_duration
+# Define the directory of the input midi file.
+INPUT_DIR_PATH = "./raw/maestro-v3.0.0/all"
 
-        # Applying selection in midi dataset
-        """
-        if not midi_selection(midi, fs):
-            print("skipped", filename)
-            continue
-        """
-        
-        # Create meoldy piano roll.
-        melody_roll = extract_melody(midi, fs=fs)
-        piano_roll = midi.get_piano_roll(fs = fs)
-        
-        # Binarize melody piano roll.
-        melody_roll[melody_roll > 0] = 1
-        melody_roll = melody_roll.astype(bool)
-        
-        piano_roll[piano_roll > 0] = 1
-        piano_roll = piano_roll.astype(bool)
+# Define where the dataset will be saved.
+OUT_DIR_PATH = "./preprocessed/maestro-v3.0.0/dataset3/"
 
-        # Normalize melody piano roll.
-        melody_roll = normalize_melody_roll(melody_roll, lb=60, ub=83)
+# Define the name of the dataset (must end with '.h5').
+OUT_FILE_NAME = "all.h5"
 
-        # Applying selection based on normalized melody 
-        """
-        if not melody_selection(melody_roll): 
-            print("skipped", filename)
-            continue
-        """
-    
-        # Add zero padding to the end of the piano roll.
-        zero_padding = (melody_roll.shape[1] % COLS_PER_BAR)
-        melody_roll = np.pad(melody_roll, ((0, 0), (0, zero_padding)), mode='constant', constant_values=0)
-        piano_roll = np.pad(piano_roll, ((0, 0), (0, zero_padding)), mode='constant', constant_values=0)
+##############################################################################
 
-        # Fill piano roll.
-        melody_roll = fill_melody_pauses(melody_roll)
 
-        print("Splitting sample ->", filename)
-
-        # Finding Main chords of the bars
-        
-    
-        # Split into samples of size 128xCOLS_PER_BAR.
-        splitted = []
-        splitted_full = []
-        splits = int(melody_roll.shape[1] / COLS_PER_BAR)
-        for i in range(splits):
-            tmp = i * COLS_PER_BAR
-            sample = melody_roll[:, tmp:tmp+COLS_PER_BAR]
-            full_sample = piano_roll[:, tmp:tmp+COLS_PER_BAR]
-            splitted.append(sample)
-            splitted_full.append(full_sample)
-
-        # Create the pair of previous and current bars.
-        for i in range(1, len(splitted)):
-            main_chord = main_chords(splitted_full[i]).astype(bool)
-            print(main_chord)
-            labels.append(main_chord)
-            pair = splitted[i-1], splitted[i]
-            samples.append(pair)
-
-        print(f"\tSplitted in {splits} samples.")
 
     
 def main():
-    # Store the samples in here.
-    samples = []
-    labels = []
+
+    # Store all midi files in side the input directory.
+    print(f"Opening midi files in {INPUT_DIR_PATH}.")
+    midi_files = get_midi_from_dir(INPUT_DIR_PATH)
+    print(f"\tTotal number of files: {len(midi_files)}.")
     
-    for dir in INPUT_DIR_PATH:
-        extract_samples(dir, samples, labels)
+    # Split the midi files in pieces of 8 bars long.
+    print("Splitting midi files...")
+    midi_files_splitted = []
+    for midi in midi_files:
+        midi_splitter(midi, midi_files_splitted, fs=8, n_bars=8)
+    print(f"\tTotal number after splitting: {len(midi_files_splitted)}.")
 
-    print("Dataset has", len(samples), " samples")
+    # Store splitted files.
+    # TODO (if needed)
 
-    # Store the dataset in a .h5 file.
-    #print("Dataset reduced to", len(samples), " samples")
-    samples = np.stack(samples)
+    # Random shuffle. 
+    print("Performing random shuffling...")
+    random.shuffle(midi_files_splitted)
+
+    # Create the dataset.
+    print("Creating dataset...")
+    dataset = []
+    labels = []
+    for i in range(2000):
+        midi = midi_files_splitted[i]
+        get_sample_triplets(midi, dataset, labels, fs=8)
+    print(f"\tDataset size: {len(dataset)}.")
+
+    # Data augmentation.
+    print("Performing augmentation on dataset...")
+    augmented_pairs = []
+    augmented_labels = []
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        for j in range(1, 12):
+            augmented_pairs.append(shift_roll_up(sample, j))
+            augmented_labels.append(labels[i])
+            
+    for i in range(len(augmented_pairs)):
+        sample = augmented_pairs[i]
+        label = augmented_labels[i]
+        dataset.append(sample)
+        labels.append(label)
+    print(f"\tTotal number after augmentation: {len(dataset)}")
+    
     with h5py.File(OUT_DIR_PATH + OUT_FILE_NAME, "w") as f:
-        f.create_dataset("x", data=samples, compression = "gzip")
+        f.create_dataset("x", data=dataset, compression = "gzip")
         f.create_dataset("y", data=labels,  compression = "gzip")
 
 

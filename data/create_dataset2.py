@@ -34,7 +34,7 @@ def main():
     # Split the midi files in pieces of 8 bars long.
     print("Splitting midi files...")
     midi_files_splitted = []
-    for midi in midi_files:
+    for midi in midi_files
         midi_splitter(midi, midi_files_splitted, fs=8, n_bars=8)
     print(f"\tTotal number after splitting: {len(midi_files_splitted)}.")
 
