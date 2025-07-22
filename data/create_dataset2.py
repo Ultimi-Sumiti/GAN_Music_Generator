@@ -48,7 +48,7 @@ def main():
     # Create the dataset.
     print("Creating dataset...")
     dataset = []
-    for i in range(2000):
+    for i in range(600):
         midi = midi_files_splitted[i]
         get_sample_pairs(midi, dataset, fs=8)
     print(f"\tDataset size: {len(dataset)}.")

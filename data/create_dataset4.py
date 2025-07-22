@@ -49,7 +49,7 @@ def main():
     print("Creating dataset...")
     dataset = []
     labels = []
-    for i in range(600):
+    for i in range(500):
         midi = midi_files_splitted[i]
         get_sample_triplets(midi, dataset, labels, fs=8)
     print(f"\tDataset size: {len(dataset)}.")

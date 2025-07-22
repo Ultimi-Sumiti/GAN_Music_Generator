@@ -413,6 +413,59 @@ def get_sample_pairs(midi, out_list, fs=8):
             pair = splitted[i-1], splitted[i]
             out_list.append(pair)
 
+def get_sample_triplets(midi, out_list,labels, fs=8):
+    # Define parameters.
+    #bar_duration = get_bar_duration(midi)
+    #fs = COLS_PER_BAR / bar_duration
+    
+    # Create meoldy piano roll.
+    melody_roll = extract_melody(midi, fs=fs)
+    # Get the full piano roll from the midi 
+    piano_roll = midi.get_piano_roll(fs = fs)
+ 
+    # Binarize melody piano roll.
+    melody_roll[melody_roll > 0] = 1
+    melody_roll = melody_roll.astype(bool)
+    
+    # Binarize full piano roll    
+    piano_roll[piano_roll > 0] = 1
+    piano_roll = piano_roll.astype(bool)
+
+
+    # Normalize melody piano roll.
+    melody_roll = normalize_melody_roll(melody_roll, lb=60, ub=83)
+
+    # Add zero padding to the end of the piano rolls (if necessary).
+    zero_padding = melody_roll.shape[1] % COLS_PER_BAR
+    melody_roll = np.pad(
+        melody_roll, ((0, 0), (0, zero_padding)),
+        mode='constant', constant_values=0
+    )
+    piano_roll = np.pad(
+        piano_roll, ((0, 0), (0, zero_padding)),
+        mode='constant', constant_values=0
+    )
+
+    # Fill piano roll, i.e. remove pauses.
+    melody_roll = fill_melody_pauses(melody_roll)
+
+    # Split into samples of size 128xCOLS_PER_BAR matrices.
+    splitted = []
+    splitted_full = []
+    splits = int(melody_roll.shape[1] / COLS_PER_BAR)
+    for i in range(splits):
+        tmp = i * COLS_PER_BAR
+        sample = melody_roll[:, tmp:tmp+COLS_PER_BAR]
+        full_sample = piano_roll[:, tmp:tmp+COLS_PER_BAR]
+        splitted.append(sample)
+        splitted_full.append(full_sample)
+
+    # Create the pairs of previous and current bars.
+    for i in range(1, len(splitted)):
+        main_chord = main_chords(splitted_full[i]).astype(bool)
+        pair = splitted[i-1], splitted[i]
+        labels.append(main_chord)
+        out_list.append(pair)
 
 def get_midi_from_dir(dir_path):
     midi_files = []
