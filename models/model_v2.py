@@ -225,6 +225,7 @@ class Discriminator(nn.Module):
         
         return y
 
+
 # Merging all togheter to expolit, building the entire GAN architechture with the lightining module
 # As function of this class we can directly implement the training process
 class GAN(L.LightningModule):
@@ -351,23 +352,20 @@ class GAN(L.LightningModule):
             # Total Discriminator loss.
             d_loss = real_loss + fake_loss
 
-            # Compute accuracy.
-            acc_real = torch.sigmoid(real_pred)
-            acc_real = acc_real.mean()
-
-            acc_fake = torch.ones_like(fake_pred) - torch.sigmoid(fake_pred)
-            acc_fake = acc_fake.mean()
-
-            # Log info.
-            self.log("d_loss", d_loss, prog_bar=True)
-            self.log("acc_real", acc_real, prog_bar=True)
-            self.log("acc_fake", acc_fake, prog_bar=True)
-            
             # Discriminator training iteration step.
             self.manual_backward(d_loss)
             optimizer_d.step()
             optimizer_d.zero_grad()
             self.untoggle_optimizer(optimizer_d)
+
+            # Compute confidence.
+            conf_real = torch.sigmoid(real_pred).mean()
+            conf_fake = 1 - torch.sigmoid(fake_pred).mean()
+
+            # Log info.
+            self.log("d_loss", d_loss, prog_bar=True)
+            self.log("conf_real", conf_real, prog_bar=True)
+            self.log("conf_fake", conf_fake, prog_bar=True)
 
         ### GENERATOR ####
         for _ in range(self.hparams.gen_updates):
@@ -410,9 +408,16 @@ class GAN(L.LightningModule):
             # Generator training iteration step. 
             self.log("g_loss", g_loss, prog_bar=True) # Log loss.
             self.manual_backward(g_loss) # Toggle.
+
+
+            # Compute gradient norm.
+            grad_norm = get_gradient_norm(self.generator)
+            self.log("grad_norm", grad_norm, prog_bar=True)
+            
             optimizer_g.step() # Update weights.
             optimizer_g.zero_grad() # Avoid accumulation of gradients.
             self.untoggle_optimizer(optimizer_g)
+
 
 
 
@@ -420,7 +425,7 @@ class GAN(L.LightningModule):
 if __name__ == "__main__": 
     # Note we have to reason considering the w_size as fixed to 128 to modify the other params of the net
     # Generator(#dim of noise, #w_size of the image, in our case is always 128, #num of kernels of the conditioner layers)
-    model = Generator(100,128,25)
+    model = Generator(100, 128, 25)
     model.eval() # Set to evaluation mode to test, othewise BatchNorm can't work
 
     # Note, is IMPORTANT that conv_x and z have the same BATCH_SIZE
