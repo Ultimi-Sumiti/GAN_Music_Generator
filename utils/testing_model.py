@@ -49,7 +49,7 @@ def generate_melody(model, n_bars, dataset, verbose=False):
     model = model.cpu()
     
     # Generate noise.
-    noise = torch.randn(n_bars, 1, 100)
+    noise = torch.randn(n_bars-1, 1, 100)
 
     # Random index.
     rnd_idx = random.randint(0, len(dataset)-1)
