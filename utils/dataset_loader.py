@@ -16,7 +16,8 @@ class MaestroV3DataSet(Dataset):
         # Save dataset length.
         with h5py.File(self.h5_path, "r") as f:
             self.length = len(f['x'])
-        # Mode can be either single or pair.
+            
+        # Mode can be either single or pair or triplet.
         assert mode == "single" or mode == "pair" or mode == "triplet"
 
         # Save mode.
@@ -61,6 +62,7 @@ class MaestroV3DataSet(Dataset):
 
                 return prev, curr, chord
 
+
 # Define the MaestroV3DataSet - GPU version (with preload).
 # The entire dataset is entirely preloaded in the GPU.
 class MaestroV3DataSet_GPU(Dataset):
@@ -70,6 +72,8 @@ class MaestroV3DataSet_GPU(Dataset):
         # Open h5 file and save the dataset.
         with h5py.File(file_path, 'r') as f:
             dataset = f['x'][:]
+            if mode == "triplet":
+                chords = f['y'][:]
 
         # Preload dataset in GPU.
         device = "cuda"
@@ -79,7 +83,7 @@ class MaestroV3DataSet_GPU(Dataset):
             self.dataset = torch.tensor(data, dtype=torch.float32).unsqueeze(1)
             # Move to GPU.
             self.dataset = self.dataset.to(device)
-        else:
+        elif mode == "pair":
             prev, curr = zip(*dataset)
             self.dataset = [
                 (
@@ -89,6 +93,19 @@ class MaestroV3DataSet_GPU(Dataset):
                     torch.tensor(c, dtype=torch.float32).unsqueeze(0).to(device)
                 )
                 for p, c in zip(prev, curr)
+            ]
+        else:
+            prev, curr,  = zip(*dataset)
+            self.dataset = [
+                (
+                    # from [128, 16] to [1, 128, 16] -> move to GPU.
+                    torch.tensor(p, dtype=torch.float32).unsqueeze(0).to(device),
+                    # from [128, 16] to [1, 128, 16] -> move to GPU.
+                    torch.tensor(c, dtype=torch.float32).unsqueeze(0).to(device),
+                    # From [13] to [13, 1, 1]
+                    torch.tensor(y, dtype=torch.float32).unsqueeze(1).unsqueeze(1).to(device),
+                )
+                for p, c, y in zip(prev, curr, chords)
             ]
 
     def __len__(self):
@@ -134,7 +151,8 @@ class MaestroV3DataModule(L.LightningDataModule):
                 self.dataset,
                 num_workers=self.nw,
                 batch_size=self.batch_size,
-                shuffle=True
+                shuffle=True,
+                pin_memory=True
             )
         return dataloader
 
