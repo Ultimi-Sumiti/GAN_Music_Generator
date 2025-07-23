@@ -211,7 +211,7 @@ class Discriminator(nn.Module):
         convolutional layers group (used to compute the feature match loss later in the GAN class)
         Arguments:
             x             The batch for the current forward pass.
-            feature_out   The boolean variable to decide what to output
+            feature_out   The boolean variable to decide what to output.
         """
         y = self.conv_net1(x)
 
@@ -253,7 +253,7 @@ class GAN(L.LightningModule):
         minibatch_C     The size of the minibatch discrimination tensor third component.
         generator       The generator instance used in this module.
         discriminator   The discriminator instance used in this module.
-        validation_z    Variable used to see intermediate result after each epoch
+        validation_z    Variable used to see intermediate result after each epoch.
     """
 
     def __init__(
@@ -402,7 +402,7 @@ class GAN(L.LightningModule):
             # Activate Generator optimizer.
             self.toggle_optimizer(optimizer_d)
 
-            # Defining the valid vector.
+            # Defining the valid tensor.
             # The factor 0.9 is used to perform one side label smoothing.
             valid = torch.ones(curr.size(0), 1) * 0.9
             valid = valid.type_as(curr)
@@ -410,7 +410,7 @@ class GAN(L.LightningModule):
             # First term of discriminator loss.
             real_loss = self.adversarial_loss(self.discriminator(curr), valid)
 
-            # Defining the fake vector.
+            # Defining the fake tensor.
             fake = torch.zeros(curr.size(0), 1)
             fake = fake.type_as(curr)
 
