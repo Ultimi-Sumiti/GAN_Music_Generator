@@ -9,10 +9,24 @@ import numpy as np
 
 # Define the MaestroV3DataSet - CPU version (no preload).
 class MaestroV3DataSet(Dataset):
+    """ This class is a version of Dataset, in particular this one adopt CPU 
+    resources.
+    Attributes:
+        h5_path   This is the path of the h5py file that contains data.
+        mode      This is a variable that tells the format of data.
+        length    This is the length of the dataset.
+    """
 
     def __init__(self, file_path: str, mode: str = "single"):
-        # Store the file path
+        """ This constructor initilize class attributes and computes length 
+        of the dataset. 
+            Arguments: 
+                file_path   This is the string with the path of the h5py file.
+                mode        This is string with the data format of the file in file_path.
+        """
+        # Store the file path.
         self.h5_path = file_path
+        
         # Save dataset length.
         with h5py.File(self.h5_path, "r") as f:
             self.length = len(f['x'])
@@ -24,24 +38,30 @@ class MaestroV3DataSet(Dataset):
         self.mode = mode
 
     def __len__(self):
+        """ This function return the len of the dataset. """
         return self.length
 
     def __getitem__(self, idx):
+        """ This function returns the item at the given index.
+        Arguments:
+            idx   The data index.
+        """
+
+        # Reading the file at the given path.
         with h5py.File(self.h5_path, 'r') as db:
             if self.mode == "single":
                 # MODEL 1
                 sample = db['x'][idx]
                 sample = torch.tensor(sample, dtype=torch.float32) # [128, 16]
                 sample = sample.unsqueeze(0) # [1, 128, 16]
+                
                 return sample
     
             elif self.mode == "pair":
                 # MODEL 2
                 prev, curr = db['x'][idx]
-    
                 prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
                 curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
-    
                 prev = prev.unsqueeze(0) # [1, 128, 16]
                 curr = curr.unsqueeze(0) # [1, 128, 16]
                 
@@ -51,11 +71,9 @@ class MaestroV3DataSet(Dataset):
                 # MODEL 3
                 prev, curr = db['x'][idx]
                 chord = db['y'][idx]
-    
                 prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
                 curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
                 chord = torch.tensor(chord, dtype=torch.float32) # [13]
-
                 prev = prev.unsqueeze(0) # [1, 128, 16]
                 curr = curr.unsqueeze(0) # [1, 128, 16]
                 chord = chord.unsqueeze(1).unsqueeze(1) # [13, 1, 1]
@@ -66,6 +84,9 @@ class MaestroV3DataSet(Dataset):
 # Define the MaestroV3DataSet - GPU version (with preload).
 # The entire dataset is entirely preloaded in the GPU.
 class MaestroV3DataSet_GPU(Dataset):
+    """ This class is a version of Dataset which implements the computation in 
+    the GPU. 
+    """
     def __init__(self, file_path: str, mode: str = "single"):
         self.mode = mode
 
