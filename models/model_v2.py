@@ -4,7 +4,7 @@ of 8 bars (16 time steps and 128 notes/semitones).
 Here we train the GAN (generator and discriminator) with a dataset of samples made of pairs of bars, obtained by processing midi files in the original dataset and converting the pretty_midi objects into 1x128x16 tensors. 
 Those pairs of bars which becomes pairs of tensors are couples of subsequent bars in one of the input midi files.
 
-The main difference between this model and the previous is that here we need to consider the relations between current and previous bar in the midi dataset, to achieve this we used a conditional GAN embedded in the generator.
+The main difference between this model and the previous is that here we need to consider the relations between current and previous bar in the midi dataset, to achieve this we used a conditional GAN embedded in the generator. 
 
 Another important thing to consider when reading the code below is that some of the typical
 steps done when coding a NN are skipped because they are implicitely done by the pytorch_lightning
@@ -35,18 +35,25 @@ from utils.architectural_utils import *
 # GENERATOR ARCHITECTHURE
 class Generator(nn.Module):
     """This class represent the GAN generator, it's an extension of the torch.nn module.
-    It is composed by three groups of layers:
-        -a group of linear layers
-        -a group of transpose convolutional layers
-        -a custom monophonic layer
+    It is composed by 4 groups of layers:
+        -a group of linear layers.
+        -a group of transpose convolutional layers.
+        -a group of convolutional layers.
+        -a custom monophonic layer.
     Both activations (LeakyRelu) and batch normalization are used.
 
     Attributes:
-        input_size        The size of the input noise for the generator.
-        fc_net            The group of linear layers.
-        transp_conv_net   The group of transpose convolution layers.
-        monophonic        The final custom Function to avoid vanishing gradients and to
-                          get only one note per time step.
+        input_size          The size of the input noise for the generator.
+        pitch_size          The height of input bars.
+        a                   The length of input bars.
+        transp_layer_size   The size of the transpose convolutions.
+        fc_net              The group of linear layers.
+        transp_conv_net     The group of transpose convolution layers (here these are separated
+                            so we have transp_conv_net1, 2, 3 and 4).
+        conv_cond           The group of convolutional layers (here these are separated se we have
+                            conv1_cond, 2, 3 and 4)
+        monophonic          The final custom Function to avoid vanishing gradients and to
+                            get only one note per time step.
     """
     
     # a := num Channels of the conditioner cnn layers (num of kernels)
