@@ -4,8 +4,12 @@
 ![GANs](https://img.shields.io/badge/model-GANs-orange) 
 ![MIDI](https://img.shields.io/badge/data-MIDI-lightgrey)
 
-This project explores symbolic-domain music generation using Generative Adversarial Networks (GANs), inspired by the [MidiNet paper](https://arxiv.org/abs/1703.10847). The goal is to generate melodies or full musical pieces from MIDI data.
 Music generation involves creating musical pieces using neural networks. This project focuses on **symbolic representations** (e.g., MIDI files), which encode notes, instruments, tempo, and other metadata, rather than raw audio.
+
+In particular in this project we have explored symbolic-domain music generation using Generative Adversarial Networks (GANs), inspired by the [MidiNet paper](https://arxiv.org/abs/1703.10847). The goal is to generate melodies or full musical pieces from MIDI data. 
+We have initially try to use a very basic implementation inspired by the simplest model in the paper, removing the conditioner network and any kind of conditioning method. After that we improved the first implementation with 2 type of conditioning methods tackled by the paper.
+
+
 
 Project overview
 
