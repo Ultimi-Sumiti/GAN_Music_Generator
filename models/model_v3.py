@@ -1,6 +1,25 @@
+""" This file contains all the code for the creation of a GAN to produce melodies
+of 8 bars (16 time steps and 128 notes/semitones).
+
+Here we train the GAN (generator and discriminator) with a dataset of samples made of triplets:
+    -one pair of bars (previous and current) 
+    -one chord 
+Pairs are obtained by processing midi files in the original dataset and converting the pretty_midi objects into 1x128x16 tensors, and also by processing the previous bar chords and selecting the dominant one in the bar time steps. The chord is encoded as a 13x1x1 tensor. 
+(The pairs of bars which becomes pairs of tensors are couples of subsequent bars in one of the midi files considered)
+
+The main difference between this model and the previous is that we don't just need to consider the 
+relation between the previous chord and the current as a 2D condition on th generation of the current, we also need to consider the relation between the previous chord and the current.
+
+Another important thing to consider when reading the code below is that some of the typical
+steps done when coding a NN are skipped because they are implicitely done by the pytorch_lightning
+library.
+"""
+
+# System libraries.
 import os
 import sys
 
+# Data/staticts/NN libraries.
 import numpy as np 
 # Remember a tensor with pytorch is composed as: (N x C x H x W) if is a 3d tensor
 import torch 
@@ -14,31 +33,55 @@ from torchvision.utils import make_grid
 import matplotlib.pyplot as plt
 from IPython import display
 
-# Import the utils
+# Import the utils.
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 from utils.architectural_utils import *
 
-# model_v3 is used to generate melodies conditioned on previous notes and conditioned on underlying chords
 
 # GENERATOR ARCHITECTHURE
 class Generator(nn.Module):
-    # a := num Channels of the conditioner cnn layers (num of kernels)
-    # w_size := dim of the w size of the image, in our case is fixed always to 128     
-    # input_size := dim of the noise vector takes in input
+    """This class represent the GAN generator, it's an extension of the torch.nn module.
+    It is composed by 4 groups of layers:
+        -a group of linear layers.
+        -a group of transpose convolutional layers.
+        -a group of convolutional layers.
+        -a custom monophonic layer.
+    Both activations (LeakyRelu) and batch normalization are used.
+
+    Attributes:
+        input_size          The size of the input noise for the generator.
+        pitch_size          The height of input bars.
+        a                   The length of input bars.
+        transp_layer_size   The size of the transpose convolutions.
+        fc_net              The group of linear layers.
+        transp_conv        The group of transpose convolution layers (here these are separated
+                            so we have transp_conv1, 2, 3 and 4).
+        conv_cond           The group of convolutional layers (here these are separated se we have
+                            conv1_cond, 2, 3 and 4)
+        monophonic          The final custom Function to avoid vanishing gradients and to
+                            get only one note per time step.
+    """
+    
     def __init__(self, input_size, w_size=128, a=16): 
+        """Initialize the layers and input size from argument.
+        Arguments:
+            a            num Channels of the conditioner cnn layers (num of kernels).
+            w_size       dim of the w size of the image, in our case is fixed always to 128.
+            input_size   dim of the noise vector takes in input.
+        """
         super().__init__()
 
-        # Channels of the X in input, in our case it's = 1
+        # Channels of the X in input, in our case it's = 1.
         self.input_size = input_size
-        self.pitch_size = w_size # Si potrebbe gia mettere 128 tanto è fissa TODO
+        self.pitch_size = w_size # Si potrebbe gia mettere 128 tanto è fissa TODO.
         self.y_size = 13
         self.a = a
        
         self.transp_layer_size = self.a + self.pitch_size + self.y_size
 
-        # Conditioner CNN in questo modelv_3 si può decidere se fare l' iniezione solo nell ultimo layer
+        # Conditioner CNN in questo modelv_3 si può decidere se fare l' iniezione solo nell ultimo layer.
         self.conv1_cond = nn.Sequential(
             nn.Conv2d(in_channels=1 , out_channels=a, kernel_size=(128,1), stride=1),
             nn.BatchNorm2d(a),
@@ -75,7 +118,7 @@ class Generator(nn.Module):
             
         )
 
-        # Transpse convolution layers
+        # Transpose convolution layers.
         self.transp_conv1 = nn.Sequential(
             # Default: padding=0, output_padding=0,  dilation=1
             nn.ConvTranspose2d(in_channels=self.transp_layer_size, out_channels=w_size, kernel_size=(1,2), stride=2),
@@ -104,38 +147,54 @@ class Generator(nn.Module):
 
     # Override of the forward method
     def forward(self, x):
+        """Override of the forward method, applying sequentially all the internally
+        defined groups of layers. In this specific case we divide the batch into
+        previous and current.
+        We apply the convolutional layers to the previous.
+        Concatenate the outputs of those layers to the chords and then to the output of
+        the linear layers applied to current.
+        After that we apply the transpose convolutions to the concatenations done
+        previously.
+        In the end we apply the monophonic layer to ensure that we have a proper bar.
+        Arguments:
+            x   The input data batch of triplets.
+        """
+        
         # x is the noise, prev_x is the previously generated sample obtained from the pair of bars, y is the chord on which
         # we want to condition our melody generation
         # (curr, prev, y), in this case we feed the conditioner with the prev, while the discriminator with curr 
         # and we feed each layer of the transp conv of the generator with y, and also the first and second layer of the discriminator
 
+        # Chord.
         y = x[2]
+        # Previous bar.
         prev_x = x[1]
+        # Current bar.
         x = x[0]
 
-        # Process the previous generated sample in the Conditioner network
-        # First number is the expected according to the paper, second number the one according to be consistent with the implementation
-        cond1 = self.conv1_cond(prev_x)                                              # ([bs, a, 1, 16])
+        # Process the previous generated sample in the Conditioner network.
+        # First number is the expected according to the paper, second number the one 
+        # according to be consistent with the implementation.
+        cond1 = self.conv1_cond(prev_x)   #  ([bs, a, 1, 16])
         #print("\nDime cond1", cond1.size())
-        cond2 = self.conv2_cond(cond1)                                               # ([bs, a, 1, 8])
+        cond2 = self.conv2_cond(cond1)    #  ([bs, a, 1, 8])
         #print("Dim cond2", cond2.size())
-        cond3 = self.conv3_cond(cond2)                                               # ([bs, a, 1, 4])
+        cond3 = self.conv3_cond(cond2)    #  ([bs, a, 1, 4])
         #print("Dim cond3", cond3.size())
-        cond4 = self.conv4_cond(cond3)                                               #  ([bs, a, 1, 2])
+        cond4 = self.conv4_cond(cond3)    #  ([bs, a, 1, 2])
         #print("Dime cond4", cond4.size())
 
-        # At the end we must have that a + b = c , where b is the dim of channel transp. conv layer, and c is the sum
-        # between conditioner layer channel (a) and (b)
+        # At the end we must have that a + b = c , where b is the dim of channel transpose 
+        # conv layer, and c is the sum between conditioner layer channel (a) and (b).
+        o = self.fc_net(x)          # ([bs, w_size, 1, 2])
 
-        o = self.fc_net(x)                                                          # ([bs, w_size, 1, 2])
-
-        # Concatenate conv4 conditioner with o (:= output tensor of fc_net) 
+        # Concatenate conv4 conditioner with o (:= output tensor of fc_net).
         #print("\no after the MLP", o.size())
-        o = chord_concat(o, y)                                                      # ([bs, y_size + w_size, 1, 2]) 
+        o = chord_concat(o, y)      # ([bs, y_size + w_size, 1, 2]) 
         #print("\no after the first chord concat", o.size())
-        o = prev_concat(o, cond4)                                                   # ([bs, y + a + w_size, 1, 2])
+        o = prev_concat(o, cond4)   # ([bs, y + a + w_size, 1, 2])
         #print("o after first conditional concat:", o.size())
-        o = self.transp_conv1(o)                                                    ## ([bs, w_size, 1, 4])
+        o = self.transp_conv1(o)    # ([bs, w_size, 1, 4])
         
         # Concatenate conv3 conditioner with o (:= output tensor of transp_conv1)
         #print("o after the first transp conv", o.size())
@@ -171,7 +230,32 @@ class Generator(nn.Module):
 
 # DISCRIMINATOR ARCHITECHTURE
 class Discriminator(nn.Module):
+    """This class represent the GAN discriminator, it's an extension of the torch.nn module.
+    It is composed by three/four groups of layers:
+        -first group of convolutional layers.
+        -second group of convolutional layers.
+        -a batch discrimination layer (not always depending on one parameter).
+        -a group of linear layers.
+    Activations (LeakyRelu),  batch normalization and dropouts(with probability equal to 0.3)
+    are used.
+
+    Attributes:
+        apply_mbd         Boolean variable to appply batch discrimination if True.
+        conv_net1         The first group of convolutional layers.
+        conv_net2         The second group of convolutional layers.
+        bd_net            The batch discrimination layers placed before the last layer of the
+                          discriminator network.
+        fc_net            The group of linear layers.
+        y_size            The size of the chord tensor.
+    """
     def __init__(self, apply_mbd=False, mbd_B_dim=10, mbd_C_dim=5):
+        """This constructor define the layers groups and set the parameters for the batch
+        discrimination layer if apply_mbd is True, also this sets the y_size.
+        Arguments:
+            apply_mbd     Boolean variable to appply batch discrimination if True.
+            minibatch_B   The size of the second component of the tensor T in bd_net.
+            minibatch_B   The size of the third component of the tensor T in bd_net.
+        """
         super().__init__()
 
         # True if one want to use minibatch discrimination.
@@ -217,22 +301,31 @@ class Discriminator(nn.Module):
                 #nn.Sigmoid()
             )
     
-    # Override of the forward method
     def forward(self, x, feature_out=False):
-
+        """Override of the forward method, applying sequentially all the layers groups.
+        Also if the parameter feature_out is True it just return the output of the first
+        convolutional layers group (used to compute the feature match loss later in the GAN class)
+        Arguments:
+            x             The batch for the current forward pass.
+            feature_out   The boolean variable to decide what to output.
+        """
+        
         # x is the noise, y is the chord on which
         # we want to condition our melody generation
         # (curr, y), in this case we feed the conditioner with the prev, while the discriminator with curr 
         # and we feed each layer of the transp conv of the generator with y, and also the first and second layer of the discriminator 
+
+        # Chords.
         y = x[1]
+        # Previous bars.
         x = x[0]
 
-        o = chord_concat(x, y)                                                      
-        #print("\no after the first chord concat", o.size())                            # ([bs, + y_size + 1 , 128, 16])
-        o = self.conv_net1(o)
-        #print("o after the first conv", o.size())                                      ## ([bs, + y_size + 1 , 1, 8])
+        o = chord_concat(x, y)   # ([bs, + y_size + 1 , 128, 16])                                                      
+        #print("\no after the first chord concat", o.size())                            
+        o = self.conv_net1(o)    # ([bs, + y_size + 1 , 1, 8])
+        #print("o after the first conv", o.size())                                      
 
-        # Needed for the feature loss in GAN training.
+        # Needed for the feature match loss in GAN training.
         if feature_out:
             return o
 
@@ -240,33 +333,55 @@ class Discriminator(nn.Module):
         if self.apply_mbd:
             o = chord_concat(o, y) # Da controllare nel paper non e scritto nell implementazione loro si TODO    # ([bs, + y_size + 14 , 1, 8])    
             #print("\no after the second chord concat (MB discriminator active)", o.size())
-            features_flattened = self.conv_net2(o)                                                               ## ([bs, 231]) 
+            features_flattened = self.conv_net2(o)   # ([bs, 231]) 
             #print("o after the second conv (MB discriminator active)", features_flattened.size())
             mbd_output = self.bd_net(features_flattened) 
     
             combined_features = torch.cat((features_flattened, mbd_output), dim=1) 
             
-            o = self.fc_net(combined_features)                                                                   ## ([bs, 1])
+            o = self.fc_net(combined_features)   # ([bs, 1])
             #print("\no after the MLP", o.size()) 
 
         # No minibatch discrimination is applied.
         else:
             o = chord_concat(o, y) # Da controllare nel paper non e scritto nell implementazione loro si TODO    # ([bs, + y_size + 14 , 1, 8]) 
             #print("\no after the second chord concat ", o.size())
-            o = self.conv_net2(o)                                                                                ## ([bs, 231])
+            o = self.conv_net2(o)   # ([bs, 231])
             #print("o after the second conv", o.size())
 
-            o = self.fc_net(o)                                                                                   ## ([bs, 1])
+            o = self.fc_net(o)   # ([bs, 1])
             #print("\no after the MLP", o.size())
         
         return o
-        
 
-# Merging all togheter to expolit, building the entire GAN architechture with the lightining module
-# As function of this class we can directly implement the training process
+
 class GAN(L.LightningModule):
+    """This class implement the entire GAN architecture, to do this we exploited the lightning
+    module which allow to do a lot of operations implicitely.
+    Here we defined the training steps, the optimizers for both the generator and the discriminator,
+    the forward pass and the losses to use.
 
-    # Constructor
+    Attributes:
+        latent_dim      The dimension of the input noise for the first iteration.
+        lr_d            The learning rate of the discriminator adam optimizer.
+        lr_g            The learning rate of the generator adam optimizer.
+        b1              The first beta coefficient of the adam optimizer.
+        b2              The second beta coefficient of the adam optimizer.
+        gen_updates     The amount of updates of the generator performed after each iteration.
+        dis_updates     The amount of updates of the discriminator performed after each iteration.
+        lambda_1        The coefficient of the importance of the data distance between fake and
+                        real data.
+        lambda_2        The coefficient of the importance of the feature distance between fake and
+                        real data.
+        minibatch_B     The size of the minibatch discrimination tensor second component.
+        minibatch_C     The size of the minibatch discrimination tensor third component.
+        generator       The generator instance used in this module.
+        discriminator   The discriminator instance used in this module.
+        validation_z    Variable used to see intermediate result after each epoch.
+        a               Num Channels of the conditioner cnn layers (num of kernels).
+    """
+
+    # Constructor.
     def __init__(
         self,
         
@@ -298,18 +413,18 @@ class GAN(L.LightningModule):
 
         **kwargs,
     ):
-        # Heridarety: to initialize correctly the superclass 
+        # To initialize correctly the superclass 
         super().__init__()
 
         # Function to save all the hyperpars passed in constructor.
         self.save_hyperparameters()
         
         # To control manually the optimization step, since in GAN we have to use criteria
-        # in optimizing both Generator and discriminator
+        # in optimizing both Generator and discriminator.
         self.automatic_optimization = False
 
-        # Newtorks definition(Generator + Discriminator)
-        # data_shape = (channels, width, height)
+        # Newtorks definition(Generator + Discriminator).
+        # data_shape = (channels, width, height).
         self.generator = Generator(latent_dim, a=a)
         self.discriminator = Discriminator(
             apply_mbd=apply_mbd,
@@ -317,33 +432,51 @@ class GAN(L.LightningModule):
             mbd_C_dim=mbd_C_dim
         )
 
-    # Forward step computed     
+    # Forward step computed.
     def forward(self, x):
+        """This function override the forward definition. Here we just compute the
+        forward pass of the instance generator."""
         return self.generator(x)
 
     # Loss of the Adversarial game.
     def adversarial_loss(self, y_hat, y):
+        """This funcrtion is the definition of the adversarial loss in the GAN network.
+        Here we decided to use the standard BCEWithLogitsLoss."""
         loss_fn = nn.BCEWithLogitsLoss()
         return loss_fn(y_hat, y)
     
-    def validation_step(self, ) :
+    def validation_step(self, ):
+        """The validation step is skipped, since we are training a GAN network which should
+        not require to do this."""
         pass
 
-    def configure_optimizers(self) :
+    def configure_optimizers(self):
+        """This function is used in the GAN class to configure the optimizer for both the
+        generator and the discriminator instances.
+        In this case we chose the adam optimizer.
+        """
+
+        # Applying the weights_init function to all layers.
         self.generator.apply(weights_init)
         self.discriminator.apply(weights_init)
-        
+
+        # Setting the parameters for the optimizers.
         lr_g = self.hparams.lr_g
         lr_d = self.hparams.lr_d
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
+        # Defining the optimizers with paramaters.
         opt_g = torch.optim.Adam(self.generator.parameters(), lr=lr_g, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.discriminator.parameters(), lr=lr_d, betas=(b1, b2))
         return [opt_g, opt_d], []
 
-    # Gan training algorithm    
+    # Gan training algorithm.
     def training_step(self, batch):
+        """This function defines what should be done at the end of the train epoch
+        (when a train epoch end this function is called).
+        """
+        
         # Batch images.
         prev, curr, y = batch
 
@@ -354,7 +487,7 @@ class GAN(L.LightningModule):
         for _ in range(self.hparams.dis_updates):
             # Sample noise for the generator.
             z = torch.randn(curr.shape[0], self.hparams.latent_dim)
-            # put on GPU because we created this tensor inside training_loop
+            # Load on GPU because we created this tensor inside training_loop.
             z = z.type_as(curr)
         
             # Generate new images.
@@ -362,7 +495,8 @@ class GAN(L.LightningModule):
             
             # Activate Generator optimizer. 
             self.toggle_optimizer(optimizer_d)
-            
+
+            # Defining the valid tensor
             # One-sided label smoothing
             valid = torch.ones(curr.size(0), 1) * 0.9
             valid = valid.type_as(curr)
@@ -373,7 +507,8 @@ class GAN(L.LightningModule):
 
             # First term of discriminator loss.
             real_loss = self.adversarial_loss(real_pred, valid)
-        
+
+            # Defining the fake tensor.
             fake = torch.zeros(curr.size(0), 1)
             fake = fake.type_as(curr)
             
@@ -403,34 +538,42 @@ class GAN(L.LightningModule):
         for _ in range(self.hparams.gen_updates):
             # Sample noise for the generator.
             z = torch.randn(curr.shape[0], self.hparams.latent_dim)
+            
             # put on GPU because we created this tensor inside training_loop
             z = z.type_as(curr)
             
             # Activate Generator optimizer. 
             self.toggle_optimizer(optimizer_g)
             
-            # Generate images. # this could be also non self (modify) 
+            # Generate images. 
+            # this could be also non self (modify) 
             self.generated_curr = self.generator((z, prev, y))
             
             # Log sampled images.
             # TODO
             
-            # ground truth result (ie: all fake)
+            # Ground truth result (ie: all fake)
             valid = torch.ones(curr.size(0), 1)
-            # put on GPU because we created this tensor inside training_loop
+            # Load on GPU because we created this tensor inside training_loop.
             valid = valid.type_as(curr)
 
             # maximize log(D(G(z))) + lamda1 * ||mean_img_from_batch - mean_img_from_g||_2 + lamda2 * ||real_features - fake_features||_2
             # Compute the loss function with the application of Feature Matching techinque
             mean_img_from_batch = torch.mean(curr, 0)
             mean_img_from_g = torch.mean(self.generated_curr, 0)
+
+            # First term of the generator loss.
             regularizer_1 = torch.norm(mean_img_from_batch - mean_img_from_g) ** 2
-        
+
+            # Computing the features using discriminator forward with just the first
+            # convolutional layers group.
             real_features = torch.mean(self.discriminator((curr, y), feature_out=True), 0)
             fake_features = torch.mean(self.discriminator((self.generated_curr, y), feature_out=True), 0)
             
+            # Second term of the generator loss.
             regularizer_2 = torch.norm(real_features - fake_features) ** 2
-            
+
+            # TO CHOOSE WHICH LOSS TO KEEP
             g_adversarial_loss = self.adversarial_loss(
                 self.discriminator((self.generated_curr, y)),
                 valid
