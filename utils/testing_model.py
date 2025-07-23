@@ -95,14 +95,16 @@ def generate_melody(model, n_bars, dataset, verbose=False):
     
     return pm
 
-# Generate a melody accompanied of chords
-def generate_melody_and_chords(model, n_bars, dataset, verbose=False):
+# Generate a melody that in future processing can be accompanied with chords
+# returns the bars and the chord, so using in combination with decoding_chord function
+# we can decide the pattern based on chord_0 to add to this melody
+def generate_melody_v3(model, n_bars, dataset, verbose=False):
 # Set model in evaluation.
     model.eval()
     model = model.cpu()
 
     # Generate noise.
-    noise = torch.randn(n_bars - 1, 1, 100)
+    noise = torch.randn(7, 1, 100)
 
     # Random index.
     rnd_idx = random.randint(0, len(dataset)-1)
@@ -129,31 +131,9 @@ def generate_melody_and_chords(model, n_bars, dataset, verbose=False):
         # Save genjerated bar
         bars.append(curr)
 
-    # Processing to add in a specific way the coding of the chord for each bar
-    #chord_0 = torch.zeros((1,13,1,1), dtype=int)
-    #chord_0[0,1,0,0] = 1
-    decoding_chord(bars,chord_0)
+    pm = bars_to_piano_roll(bars,verbose)
 
-    # Convert bars in numpy array.
-    bars_numpy = []
-    for bar in bars:
-        bar = bar.squeeze(0, 1).detach().numpy()
-        bars_numpy.append(bar)
-
-    # Create the full piano roll.
-    full_piano_roll = np.hstack([bar for bar in bars_numpy])
-    if verbose:
-        print("Full piano roll")
-        print("Shape:", full_piano_roll.shape)
-        show_piano_roll(full_piano_roll)
-
-    # Multiply by 50.
-    full_piano_roll *= 50
-
-    # Create midi file.
-    pm = piano_roll_to_pretty_midi(full_piano_roll, fs=8)
-
-    return pm
+    return pm, bars, chord_0
 
 MAJOR_CHORD_NOTE_TRIPLETS = [
     [0, 4, 7],    # C Major (Tonic 0)
@@ -184,6 +164,29 @@ MINOR_CHORD_NOTE_TRIPLETS = [
     [7, 10, 2],   # G Minor (Tonic 7)
     [8, 11, 3]    # G# Minor (Tonic 8)
 ]
+
+ # Convert bars in numpy array.
+def bars_to_piano_roll(bars, verbose):
+    # Convert bars in numpy array.
+    bars_numpy = []
+    for bar in bars:
+        bar = bar.squeeze(0, 1).detach().numpy()
+        bars_numpy.append(bar)
+
+    # Create the full piano roll.
+    full_piano_roll = np.hstack([bar for bar in bars_numpy])
+    if verbose:
+        print("Full piano roll")
+        print("Shape:", full_piano_roll.shape)
+        show_piano_roll(full_piano_roll)
+
+    # Multiply by 50.
+    full_piano_roll *= 50
+
+    # Create midi file.
+    pm = piano_roll_to_pretty_midi(full_piano_roll, fs=8)
+    return pm
+
 
 # Function to insert a Basic pattern chords 
 def pattern_chords_1(bars, selected_chord, offset, n_bars):
