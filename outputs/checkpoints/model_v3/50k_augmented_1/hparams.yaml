@@ -1,0 +1,13 @@
+a: 40
+apply_mbd: true
+b1: 0.5
+b2: 0.999
+dis_updates: 1
+gen_updates: 2
+lambda_1: 0.01
+lambda_2: 0.1
+latent_dim: 100
+lr_d: 1.0e-05
+lr_g: 0.0003
+mbd_B_dim: 20
+mbd_C_dim: 10
