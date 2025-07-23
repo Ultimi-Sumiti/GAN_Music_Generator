@@ -1,6 +1,21 @@
+""" This file contains all the code for the creation of a GAN to produce melodies
+of 8 bars (16 time steps and 128 notes/semitones).
+
+Here we train the GAN (generator and discriminator) with a dataset of samples made of pairs of bars, obtained by processing midi files in the original dataset and converting the pretty_midi objects into 1x128x16 tensors. 
+Those pairs of bars which becomes pairs of tensors are couples of subsequent bars in one of the input midi files.
+
+The main difference between this model and the previous is that here we need to consider the relations between current and previous bar in the midi dataset, to achieve this we used a conditional GAN embedded in the generator.
+
+Another important thing to consider when reading the code below is that some of the typical
+steps done when coding a NN are skipped because they are implicitely done by the pytorch_lightning
+library.
+"""
+
+# System libraries.
 import os
 import sys
 
+# Data/staticts/NN libraries.
 import numpy as np 
 # Remember a tensor with pytorch is composed as: (N x C x H x W) if is a 3d tensor
 import torch 
@@ -8,7 +23,7 @@ import torch.nn as nn
 #import lightning as L
 import pytorch_lightning as L
 
-# Import the utils
+# Import the utils.
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
@@ -16,10 +31,24 @@ from utils.architectural_utils import *
 
 
 
-# model_v2 is used to generate melodies conditioned on previous notes
 
 # GENERATOR ARCHITECTHURE
 class Generator(nn.Module):
+    """This class represent the GAN generator, it's an extension of the torch.nn module.
+    It is composed by three groups of layers:
+        -a group of linear layers
+        -a group of transpose convolutional layers
+        -a custom monophonic layer
+    Both activations (LeakyRelu) and batch normalization are used.
+
+    Attributes:
+        input_size        The size of the input noise for the generator.
+        fc_net            The group of linear layers.
+        transp_conv_net   The group of transpose convolution layers.
+        monophonic        The final custom Function to avoid vanishing gradients and to
+                          get only one note per time step.
+    """
+    
     # a := num Channels of the conditioner cnn layers (num of kernels)
     # w_size := dim of the w size of the image, in our case is fixed always to 128     
     # input_size := dim of the noise vector takes in input
