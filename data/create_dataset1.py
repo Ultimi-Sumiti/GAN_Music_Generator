@@ -9,11 +9,11 @@ from midi_preprocessing import *
 # Define the number of cols per bar.
 COLS_PER_BAR = 16
 # Define the directory of the dataset.
-INPUT_DIR_PATH = "./raw/maestro-v3.0.0/small_tester/"
+INPUT_DIR_PATH = "./raw/maestro-v3.0.0/2018"
 # Define the output directory path.
 OUT_DIR_PATH = "./preprocessed/maestro-v3.0.0/dataset1/"
 # Define output file name.
-OUT_FILE_NAME = "small_tester.h5"
+OUT_FILE_NAME = "2018_50k_augmented.h5"
 
 
 def extract_samples(dir_path, samples):
