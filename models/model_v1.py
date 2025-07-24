@@ -344,37 +344,6 @@ class GAN(L.LightningModule):
         )
         return [opt_g, opt_d], []
 
-    # It shuld be on_validation_epoch_end
-    def on_train_epoch_end(self):
-        """This function defines what should be done at the end of the train epoch
-        (when a train epoch end this function is called).
-        """
-
-        # Clear ouput.
-        display.clear_output(wait=True)
-
-        z = self.validation_z.type_as(self.generator.fc_net[0].weight)
-
-        # Generate images.
-        sample_curr = self(z).detach().cpu()
-
-        # Grid dimensions.
-        cols = 5
-        rows = 2
-
-        # Create the figure.
-        fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 2))
-        axes = axes.flatten()
-        for idx, (ax, img) in enumerate(zip(axes, sample_curr)):
-            img_np = img.squeeze().numpy()
-            im = ax.imshow(img_np, aspect="auto", origin="lower", cmap="hot")
-            ax.set_title(f"#{idx}")
-            fig.colorbar(im, ax=ax, label="Velocity")
-
-        # Plot the figure.
-        plt.tight_layout()
-        plt.show()
-
     def training_step(self, batch):
         """This function defined whar should be done at each train step. Gets from
         the arguments the batch.
@@ -407,34 +376,35 @@ class GAN(L.LightningModule):
             valid = torch.ones(curr.size(0), 1) * 0.9
             valid = valid.type_as(curr)
 
+            real_pred = self.discriminator(curr)
+            fake_pred = self.discriminator(self.generated_curr.detach())
+
             # First term of discriminator loss.
-            real_loss = self.adversarial_loss(self.discriminator(curr), valid)
+            real_loss = self.adversarial_loss(real_pred, valid)
 
             # Defining the fake tensor.
             fake = torch.zeros(curr.size(0), 1)
             fake = fake.type_as(curr)
 
             # Second term of discriminator loss.
-            fake_loss = self.adversarial_loss(
-                self.discriminator(self.generated_curr.detach()), fake
-            )
+            fake_loss = self.adversarial_loss(fake_pred, fake)
 
             # Total discriminator loss.
             d_loss = real_loss + fake_loss
 
-            # WGAN loss.
-            # d_loss = torch.mean(self.discriminator(self.generated_curr.detach())) - torch.mean(self.discriminator(curr))
-
             # Discriminator training.
-            self.log("d_loss", d_loss, prog_bar=True)
             self.manual_backward(d_loss)
             optimizer_d.step()
             optimizer_d.zero_grad()
             self.untoggle_optimizer(optimizer_d)
 
-            ## WGAN.
-            # for p in self.discriminator.parameters():
-            #    p.data.clamp_(-0.01, 0.01)
+            # Compute confidence.
+            conf_real = torch.sigmoid(real_pred).mean()
+            conf_fake = 1 - torch.sigmoid(fake_pred).mean()
+            
+            self.log("d_loss", d_loss, prog_bar=True)
+            self.log("conf_real", conf_real, prog_bar=True)
+            self.log("conf_fake", conf_fake, prog_bar=True)
 
         ### GENERATOR ####
         for _ in range(self.hparams.gen_updates):
@@ -492,6 +462,11 @@ class GAN(L.LightningModule):
             # Generator training.
             self.log("g_loss", g_loss, prog_bar=True)  # Log loss.
             self.manual_backward(g_loss)  # Toggle.
+            
+            # Compute gradient norm.
+            grad_norm = get_gradient_norm(self.generator)
+            self.log("grad_norm", grad_norm, prog_bar=True)
+            
             optimizer_g.step()  # Update weights.
             optimizer_g.zero_grad()  # Avoid accumulation of gradients.
             self.untoggle_optimizer(optimizer_g)
