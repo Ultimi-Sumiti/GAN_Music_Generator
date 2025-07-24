@@ -470,48 +470,57 @@ def shift_roll_up(sample, n):
 
 
 def get_sample_pairs(midi, out_list, fs=8):
-        # Define parameters.
-        #bar_duration = get_bar_duration(midi)
-        #fs = COLS_PER_BAR / bar_duration
-        
-        # Create meoldy piano roll.
-        melody_roll = extract_melody(midi, fs=fs)
-     
-        # Binarize melody piano roll.
-        melody_roll[melody_roll > 0] = 1
-        melody_roll = melody_roll.astype(bool)
+    """ This function is used to get the sample pairs from a pretty midi
+    object (previous bar, current bar).
 
-        # Normalize melody piano roll.
-        #melody_roll = midi.get_piano_roll(fs = fs)
-    #normalize_melody_roll(melody_roll, lb=60, ub=83)
+    Arguments: 
+        midi       This is the input pretty midi object.
+        out_list   This a list we put all sample pairs found.   
+        fs         This is the frame per second we read the midi file with.
+    """
     
-        # Add zero padding to the end of the piano roll (if necessary).
-        zero_padding = melody_roll.shape[1] % COLS_PER_BAR
-        melody_roll = np.pad(
-            melody_roll, ((0, 0), (0, zero_padding)),
-            mode='constant', constant_values=0
-        )
+    # Create meoldy piano roll.
+    melody_roll = extract_melody(midi, fs=fs)
+ 
+    # Binarize melody piano roll.
+    melody_roll[melody_roll > 0] = 1
+    melody_roll = melody_roll.astype(bool)
 
-        # Fill piano roll, i.e. remove pauses.
-        melody_roll = fill_melody_pauses(melody_roll)
+    # Normalize melody piano roll.
+    melody_roll = normalize_melody_roll(melody_roll, lb=60, ub=83)
 
-        # Split into samples of size 128xCOLS_PER_BAR matrices.
-        splitted = []
-        splits = int(melody_roll.shape[1] / COLS_PER_BAR)
-        for i in range(splits):
-            tmp = i * COLS_PER_BAR
-            sample = melody_roll[:, tmp:tmp+COLS_PER_BAR]
-            splitted.append(sample)
+    # Add zero padding to the end of the piano roll (if necessary).
+    zero_padding = melody_roll.shape[1] % COLS_PER_BAR
+    melody_roll = np.pad(
+        melody_roll, ((0, 0), (0, zero_padding)),
+        mode='constant', constant_values=0
+    )
 
-        # Create the pairs of previous and current bars.
-        for i in range(1, len(splitted)):
-            pair = splitted[i-1], splitted[i]
-            out_list.append(pair)
+    # Fill piano roll, i.e. remove pauses.
+    melody_roll = fill_melody_pauses(melody_roll)
+
+    # Split into samples of size 128xCOLS_PER_BAR matrices.
+    splitted = []
+    splits = int(melody_roll.shape[1] / COLS_PER_BAR)
+    for i in range(splits):
+        tmp = i * COLS_PER_BAR
+        sample = melody_roll[:, tmp:tmp+COLS_PER_BAR]
+        splitted.append(sample)
+
+    # Create the pairs of previous and current bars.
+    for i in range(1, len(splitted)):
+        pair = splitted[i-1], splitted[i]
+        out_list.append(pair)
 
 def get_sample_triplets(midi, out_list,labels, fs=8):
-    # Define parameters.
-    #bar_duration = get_bar_duration(midi)
-    #fs = COLS_PER_BAR / bar_duration
+    """ This function is used to get the sample triplets from a pretty midi
+    object (previous bar, current bar, previous chord).
+
+    Arguments: 
+        midi       This is the input pretty midi object.
+        out_list   This a list we put all sample triplets found.   
+        fs         This is the frame per second we read the midi file with.
+    """
     
     # Create meoldy piano roll.
     melody_roll = extract_melody(midi, fs=fs)
@@ -563,6 +572,12 @@ def get_sample_triplets(midi, out_list,labels, fs=8):
         out_list.append(pair)
 
 def get_midi_from_dir(dir_path):
+    """ This function returns all the pretty midi objects inside the dir_path.
+
+    Arguments: 
+        dir_path   This is a string with the path of the input directory.
+    """
+    
     midi_files = []
 
     # Iterate through all the files.
