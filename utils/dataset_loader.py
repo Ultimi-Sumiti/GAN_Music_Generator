@@ -5,11 +5,11 @@ from torch.utils.data import Dataset, DataLoader
 import h5py
 import random
 import numpy as np
- 
+
 
 # Define the MaestroV3DataSet - CPU version (no preload).
 class MaestroV3DataSet(Dataset):
-    """ This class is a version of Dataset, in particular this one adopt CPU 
+    """This class is a version of Dataset, in particular this one adopt CPU
     resources.
     Attributes:
         h5_path   This is the path of the h5py file that contains data.
@@ -18,19 +18,19 @@ class MaestroV3DataSet(Dataset):
     """
 
     def __init__(self, file_path: str, mode: str = "single"):
-        """ This constructor initilize class attributes and computes length 
-        of the dataset. 
-            Arguments: 
+        """This constructor initilize class attributes and computes length
+        of the dataset.
+            Arguments:
                 file_path   This is the string with the path of the h5py file.
                 mode        This is string with the data format of the file in file_path.
         """
         # Store the file path.
         self.h5_path = file_path
-        
+
         # Save dataset length.
         with h5py.File(self.h5_path, "r") as f:
-            self.length = len(f['x'])
-            
+            self.length = len(f["x"])
+
         # Mode can be either single or pair or triplet.
         assert mode == "single" or mode == "pair" or mode == "triplet"
 
@@ -38,45 +38,45 @@ class MaestroV3DataSet(Dataset):
         self.mode = mode
 
     def __len__(self):
-        """ This function return the len of the dataset. """
+        """This function return the len of the dataset."""
         return self.length
 
     def __getitem__(self, idx):
-        """ This function returns the item at the given index.
+        """This function returns the item at the given index.
         Arguments:
             idx   The data index.
         """
 
         # Reading the file at the given path.
-        with h5py.File(self.h5_path, 'r') as db:
+        with h5py.File(self.h5_path, "r") as db:
             if self.mode == "single":
                 # MODEL 1
-                sample = db['x'][idx]
-                sample = torch.tensor(sample, dtype=torch.float32) # [128, 16]
-                sample = sample.unsqueeze(0) # [1, 128, 16]
-                
+                sample = db["x"][idx]
+                sample = torch.tensor(sample, dtype=torch.float32)  # [128, 16]
+                sample = sample.unsqueeze(0)  # [1, 128, 16]
+
                 return sample
-    
+
             elif self.mode == "pair":
                 # MODEL 2
-                prev, curr = db['x'][idx]
-                prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
-                curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
-                prev = prev.unsqueeze(0) # [1, 128, 16]
-                curr = curr.unsqueeze(0) # [1, 128, 16]
-                
+                prev, curr = db["x"][idx]
+                prev = torch.tensor(prev, dtype=torch.float32)  # [128, 16]
+                curr = torch.tensor(curr, dtype=torch.float32)  # [128, 16]
+                prev = prev.unsqueeze(0)  # [1, 128, 16]
+                curr = curr.unsqueeze(0)  # [1, 128, 16]
+
                 return prev, curr
-                
-            else: 
+
+            else:
                 # MODEL 3
-                prev, curr = db['x'][idx]
-                chord = db['y'][idx]
-                prev = torch.tensor(prev, dtype=torch.float32) # [128, 16]
-                curr = torch.tensor(curr, dtype=torch.float32) # [128, 16]
-                chord = torch.tensor(chord, dtype=torch.float32) # [13]
-                prev = prev.unsqueeze(0) # [1, 128, 16]
-                curr = curr.unsqueeze(0) # [1, 128, 16]
-                chord = chord.unsqueeze(1).unsqueeze(1) # [13, 1, 1]
+                prev, curr = db["x"][idx]
+                chord = db["y"][idx]
+                prev = torch.tensor(prev, dtype=torch.float32)  # [128, 16]
+                curr = torch.tensor(curr, dtype=torch.float32)  # [128, 16]
+                chord = torch.tensor(chord, dtype=torch.float32)  # [13]
+                prev = prev.unsqueeze(0)  # [1, 128, 16]
+                curr = curr.unsqueeze(0)  # [1, 128, 16]
+                chord = chord.unsqueeze(1).unsqueeze(1)  # [13, 1, 1]
 
                 return prev, curr, chord
 
@@ -84,23 +84,32 @@ class MaestroV3DataSet(Dataset):
 # Define the MaestroV3DataSet - GPU version (with preload).
 # The entire dataset is entirely preloaded in the GPU.
 class MaestroV3DataSet_GPU(Dataset):
-    """ This class is a version of Dataset which implements the computation in 
-    the GPU. 
+    """This class is a version of Dataset which implements the computation in
+    the GPU.
     """
+
     def __init__(self, file_path: str, mode: str = "single"):
+        """This constructor intialize the file_path and mode attributes. Also here we
+        load the dataset to the cuda device.
+        Arguments:
+            file_path   The path of the file h5py.
+            mode        The modality for accessing the datset correcty.
+        """
+
         self.mode = mode
 
         # Open h5 file and save the dataset.
-        with h5py.File(file_path, 'r') as f:
-            dataset = f['x'][:]
+        with h5py.File(file_path, "r") as f:
+            dataset = f["x"][:]
             if mode == "triplet":
-                chords = f['y'][:]
+                chords = f["y"][:]
 
         # Preload dataset in GPU.
         device = "cuda"
 
+        # Depending on the mode, we perform different operation to extract dataset.
         if mode == "single":
-            # from [N, 128, 16] to  [N, 1, 128, 16].
+            # From [N, 128, 16] to  [N, 1, 128, 16].
             self.dataset = torch.tensor(dataset, dtype=torch.float32).unsqueeze(1)
             # Move to GPU.
             self.dataset = self.dataset.to(device)
@@ -111,12 +120,15 @@ class MaestroV3DataSet_GPU(Dataset):
                     # from [128, 16] to [1, 128, 16] -> move to GPU.
                     torch.tensor(p, dtype=torch.float32).unsqueeze(0).to(device),
                     # from [128, 16] to [1, 128, 16] -> move to GPU.
-                    torch.tensor(c, dtype=torch.float32).unsqueeze(0).to(device)
+                    torch.tensor(c, dtype=torch.float32).unsqueeze(0).to(device),
                 )
                 for p, c in zip(prev, curr)
             ]
         else:
-            prev, curr,  = zip(*dataset)
+            (
+                prev,
+                curr,
+            ) = zip(*dataset)
             self.dataset = [
                 (
                     # from [128, 16] to [1, 128, 16] -> move to GPU.
@@ -124,29 +136,49 @@ class MaestroV3DataSet_GPU(Dataset):
                     # from [128, 16] to [1, 128, 16] -> move to GPU.
                     torch.tensor(c, dtype=torch.float32).unsqueeze(0).to(device),
                     # From [13] to [13, 1, 1]
-                    torch.tensor(y, dtype=torch.float32).unsqueeze(1).unsqueeze(1).to(device),
+                    torch.tensor(y, dtype=torch.float32)
+                    .unsqueeze(1)
+                    .unsqueeze(1)
+                    .to(device),
                 )
                 for p, c, y in zip(prev, curr, chords)
             ]
 
     def __len__(self):
+        """This function return the len of the dataset."""
         return len(self.dataset)
 
     def __getitem__(self, idx):
+        """This function returns the item at the given index.
+        Arguments:
+            idx   The data index.
+        """
         return self.dataset[idx]
 
 
 # Define the meastro DataLoader.
 class MaestroV3DataModule(L.LightningDataModule):
+    """This class is a version of the LightningDataModule, after initialization
+    it allows to set the dataset and then train dataloader.
+    Attributes:
+        data_dir      The directory where we have the data.
+        batch_size    The dimension of the file.
+        mode          This variable tells the modality to access the dataset.
+        preload_gpu   This is a boolean variable that tells whether we should tun on GPU.
+        nw            This is the number of workers that load the dataset in parallel.
+        dataset       This variable is the dataset itself (can be of 2 types).
+
+    """
 
     def __init__(
-            self, 
-            data_dir: str,
-            batch_size: int = 32,
-            mode: str = "single",
-            num_workers: int = 0,
-            preload_gpu: bool = False
-        ):
+        self,
+        data_dir: str,
+        batch_size: int = 32,
+        mode: str = "single",
+        num_workers: int = 0,
+        preload_gpu: bool = False,
+    ):
+        """This constructor initialize the main class attributes."""
         super().__init__()
         self.data_dir = data_dir
         self.batch_size = batch_size
@@ -155,17 +187,19 @@ class MaestroV3DataModule(L.LightningDataModule):
         self.nw = num_workers
 
     def setup(self, stage: str):
+        """This function set the dataset, here we check if we have to train on the gpu
+        or not and we decide which dataset to use depending on this.
+        """
         if self.preload_gpu:
             self.dataset = MaestroV3DataSet_GPU(self.data_dir, self.mode)
         else:
             self.dataset = MaestroV3DataSet(self.data_dir, self.mode)
 
     def train_dataloader(self):
+        """This function is used to train the class instance on the chosen dataset."""
         if self.preload_gpu:
             dataloader = DataLoader(
-                self.dataset,
-                batch_size=self.batch_size,
-                shuffle=True
+                self.dataset, batch_size=self.batch_size, shuffle=True
             )
         else:
             dataloader = DataLoader(
@@ -173,21 +207,32 @@ class MaestroV3DataModule(L.LightningDataModule):
                 num_workers=self.nw,
                 batch_size=self.batch_size,
                 shuffle=True,
-                pin_memory=True
+                pin_memory=True,
             )
         return dataloader
 
 
 # Random sampler from dataset.
 def random_batch_sampler(dataset: Dataset, size: int):
+    """This function is used to sampling in a random way from the given dataset
+    using the random library.
+
+    Arguments:
+        dataset   The dataset where we randomly sample.
+        size      The dimension of the output dataset.
+    """
+
     prevs = []
     currs = []
+
+    # Iterating through the input dataset and creation of the output dataset.
     for _ in range(size):
-        rnd_idx = random.randint(0, len(dataset)-1)
+        rnd_idx = random.randint(0, len(dataset) - 1)
         sample = dataset[rnd_idx]
         prev, curr = sample
         prevs.append(prev)
         currs.append(curr)
 
+    # Conversion of the dataset from numpy to torch.
     batch = torch.from_numpy(np.array([prevs, currs]))
     return batch
