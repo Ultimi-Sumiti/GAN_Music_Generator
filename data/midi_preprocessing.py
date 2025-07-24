@@ -61,11 +61,11 @@ def normalize_melody_roll(piano_roll, lb, ub):
         ub         This is the upper bound (integer within 0-127 interval)
     """
     
-    assert lb <= ub, "Lower bound must be smaller or equal than upper bound."
-    assert lb >= 0, "Lower bound must be bigger or equal to 0."
-    assert lb <= 127 "Lower bound must be smaller or equal to 127."
-    assert ub >= 0, "Upper bound must be bigger or equal to 0."
-    assert ub <= 127 "Upper bound must be smaller or equal to 127."
+    assert lb <= ub,  "Lower bound must be smaller or equal than upper bound."
+    assert lb >= 0,   "Lower bound must be bigger or equal to 0."
+    assert lb <= 127, "Lower bound must be smaller or equal to 127."
+    assert ub >= 0,   "Upper bound must be bigger or equal to 0."
+    assert ub <= 127, "Upper bound must be smaller or equal to 127."
     
     # Output roll.
     normalized_piano_roll = np.zeros_like(piano_roll)
