@@ -12,9 +12,26 @@ In particular in this project we have explored symbolic-domain music generation 
 We have initially try to use a very basic implementation inspired by the simplest model in the paper, removing the conditioner network and any kind of conditioning method. After that we improved the first implementation with 2 type of conditioning methods tackled by the paper.
 
 
-Project overview
+# How It Works
 
-Project structure
+The core of this project is a GAN architecture designed for creating melodies. The entire process, from raw data to generated music, follows a specific pipeline:
+
+1.  **Input Data**: The process starts with raw MIDI files from the MAESTRO Dataset.
+2.  **Preprocessing**: Each MIDI file is converted into a piano roll representation, a binary matrix where notes are mapped over time steps. This stage includes extracting the main melody from chords and removing pauses.
+3.  **Data Augmentation**: To increase the dataset size, the melodies are circularly shifted up by one semitone recursively 11 times, creating 12 versions of each melody bar.
+4.  **GAN Training**: The augmented dataset is used to train the GAN models. The training treats common GAN issues like mode collapse and instability through fine-tuned hyperparameters and techniques like mini-batch discrimination.
+5.  **Music Generation**: Once trained, the generator model can create new piano roll sequences, which are then converted back into MIDI files that can be stored and replayed.
+
+
+# Models
+
+This project implements three distinct GAN models with increasing complexity:
+
+* **`model_v1`**: A baseline DCGAN that generates single, one-bar-long melodies from a random noise vector.
+* **`model_v2`**: A Conditional DCGAN that generates a melody bar conditioned on the preceding bar, encouraging more harmonically coherent sequences.
+* **`model_v3`**: An extension of `model_v2` that is also conditioned on the chord associated with the previous bar, adding another layer of musical context to the generation process.
+
+***
 
 Task tackled
 
