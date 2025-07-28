@@ -38,7 +38,7 @@ Chord: A 13-dimensional vector that encodes the chord iteself, specifying the ke
 
 Octave: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
 
-Dataset used:
+# Dataset used:
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
 We mainly used the MAESTRO Dataset. In this repository you can find the version 3.0.0.
 
