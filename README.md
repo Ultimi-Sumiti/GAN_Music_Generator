@@ -8,7 +8,7 @@
 
 # How It Works
 
-The core of this project is a GAN architecture designed for creating melodies. The entire process, from raw data to generated music, follows a specific pipeline:
+The main part of this project is a GAN architecture designed for creating melodies. The entire process, from raw data to generated music, follows a specific pipeline:
 
 1.  **Input Data**: The process starts with raw MIDI files from the MAESTRO Dataset.
 2.  **Preprocessing**: Each MIDI file is converted into a piano roll representation, a binary matrix where notes are mapped over time steps. This stage includes extracting the main melody from chords and removing pauses.
