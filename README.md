@@ -33,8 +33,6 @@ This project implements three distinct GAN models with increasing complexity:
 
 ***
 
-## Results
-
 
 Ricordare i termini basici per la musica come melodia chord etc
 
