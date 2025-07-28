@@ -3,7 +3,20 @@
 ![Music Generation](https://img.shields.io/badge/domain-music%20generation-blue) 
 ![GANs](https://img.shields.io/badge/model-GANs-orange) 
 ![MIDI](https://img.shields.io/badge/data-MIDI-lightgrey)
-# Abstract
+
+## Table of Contents
+- [Abstract](#abstract)
+- [How It Works](#how-it-works)
+- [Models](#models)
+- [Key Musical Concepts](#key-musical-concepts)
+- [Dataset used](#dataset-used)
+- [Project structure](#project-structure)
+- [Setup](#setup)
+- [Results](#results)
+  - [Songs](#songs)
+- [Team Members](#team-members)
+
+# Abstract <a name="abstract"></a>
 *"Recent advances in generative models have made the automated production of music a timely and important area of deep learning research.This project presents a simplified and effective Generative Adversarial Network (GAN), inspired by [MidiNet paper](https://arxiv.org/abs/1703.10847), for symbolic music generation. Its importance lies in demonstrating that a minimal, interpretable model can achieve stable and musically coherent results by addressing practical training challenges like mode collapse and non-convergence. This is accomplished through techniques like minibatch discrimination and careful hyperparameter tuning.The main result is a successfully balanced training process, enabling the generator to produce structured piano roll melodies without collapsing. This work provides a reproducible and efficient baseline that can serve as a practical foundation for further experimental research in music generation."*
 
 # How It Works
