@@ -36,7 +36,7 @@ Melody: A monophonic sequence where only one note is active at each time-step. I
 
 Chord: A 13-dimensional vector that encodes the chord iteself, specifying the key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
 
-Octave: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C0-B5). This helps in detecting training issues like mode collapse.
+Octave: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
 
 Dataset used:
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
