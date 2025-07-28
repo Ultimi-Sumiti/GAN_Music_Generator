@@ -6,9 +6,9 @@
 
 ## Table of Contents
 - [Abstract](#abstract)
+- [Key Musical Concepts](#key-musical-concepts)
 - [How It Works](#how-it-works)
 - [Models](#models)
-- [Key Musical Concepts](#key-musical-concepts)
 - [Dataset used](#dataset-used)
 - [Project structure](#project-structure)
 - [Setup](#setup)
@@ -16,8 +16,21 @@
   - [Songs](#songs)
 - [Team Members](#team-members)
 
-# Abstract <a name="abstract"></a>
+# Abstract 
 *"Recent advances in generative models have made the automated production of music a timely and important area of deep learning research.This project presents a simplified and effective Generative Adversarial Network (GAN), inspired by [MidiNet paper](https://arxiv.org/abs/1703.10847), for symbolic music generation. Its importance lies in demonstrating that a minimal, interpretable model can achieve stable and musically coherent results by addressing practical training challenges like mode collapse and non-convergence. This is accomplished through techniques like minibatch discrimination and careful hyperparameter tuning.The main result is a successfully balanced training process, enabling the generator to produce structured piano roll melodies without collapsing. This work provides a reproducible and efficient baseline that can serve as a practical foundation for further experimental research in music generation."*
+
+
+# Key Musical Concepts
+This section briefly defines the principal musical terms present in this project.
+
+**Piano Roll**: A binary matrix representing musical data. It maps 128 MIDI notes in 16 time-steps per bar.
+
+**Melody**: A monophonic sequence where only one note is active at each time-step. It is extracted by selecting the highest-velocity note from the full piano roll in each frame.
+
+**Chord**: A 13-dimensional vector that encodes the chord iteself, specifying the first key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
+
+**Octave**: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
+
 
 # How It Works
 
@@ -39,17 +52,6 @@ This project implements three distinct GAN models with increasing complexity:
 * **`model_v3`**: An extension of `model_v2` that is also conditioned on the chord associated with the previous bar, adding another layer of musical context to the generation process.
 
 ***
-
-# Key Musical Concepts
-This section briefly defines the principal musical terms present in this project.
-
-**Piano Roll**: A binary matrix representing musical data. It maps 128 MIDI notes in 16 time-steps per bar.
-
-**Melody**: A monophonic sequence where only one note is active at each time-step. It is extracted by selecting the highest-velocity note from the full piano roll in each frame.
-
-**Chord**: A 13-dimensional vector that encodes the chord iteself, specifying the first key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
-
-**Octave**: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
 
 # Dataset used:
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
