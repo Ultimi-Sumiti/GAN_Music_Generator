@@ -19,7 +19,6 @@ Task tackled
 Ricordare i termini basici per la musica come melodia chord etc
 
 Dataset used:
-- **[Lakh MIDI Dataset](https://colinraffel.com/projects/lmd/)**: 176K+ MIDI files (use the *Clean-MIDI subset*).  
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
 We mainly used the MAESTRO Dataset. In this repository you can find the version 3.0.0.
 
