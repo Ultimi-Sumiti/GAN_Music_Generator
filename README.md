@@ -34,7 +34,7 @@ This section briefly defines the principal musical terms present in this project
 
 **Melody**: A monophonic sequence where only one note is active at each time-step. It is extracted by selecting the highest-velocity note from the full piano roll in each frame.
 
-**Chord**: A 13-dimensional vector that encodes the chord iteself, specifying the key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
+**Chord**: A 13-dimensional vector that encodes the chord iteself, specifying the first key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
 
 **Octave**: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
 
