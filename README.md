@@ -30,13 +30,13 @@ This project implements three distinct GAN models with increasing complexity:
 # Key Musical Concepts
 This section briefly defines the principal musical terms present in this project.
 
-Piano Roll: A binary matrix representing musical data. It maps 128 MIDI notes in 16 time-steps per bar.
+**Piano Roll**: A binary matrix representing musical data. It maps 128 MIDI notes in 16 time-steps per bar.
 
-Melody: A monophonic sequence where only one note is active at each time-step. It is extracted by selecting the highest-velocity note from the full piano roll in each frame.
+**Melody**: A monophonic sequence where only one note is active at each time-step. It is extracted by selecting the highest-velocity note from the full piano roll in each frame.
 
-Chord: A 13-dimensional vector that encodes the chord iteself, specifying the key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
+**Chord**: A 13-dimensional vector that encodes the chord iteself, specifying the key and whether the chord is major or minor. It is derived from the most frequent chord in the previous bar of music.
 
-Octave: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
+**Octave**: All musical notes are normalized into a fixed two-octave range (MIDI notes 60-83 equivalent to C4-B5). This helps in detecting training issues like mode collapse.
 
 # Dataset used:
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
