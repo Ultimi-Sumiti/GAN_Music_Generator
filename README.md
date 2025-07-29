@@ -8,13 +8,15 @@
 - [Abstract](#abstract)
 - [Key Musical Concepts](#key-musical-concepts)
 - [How It Works](#how-it-works)
+- [Dataset used](#dataset)
+  - [How to create a dataset starting from raw MIDI files](#how-to-create-a-dataset-starting-from-raw-midi-files)
 - [Models](#models)
-- [Dataset used](#dataset-used)
+  - [How to train a model](#how-to-train-a-model)
+  - [How to test a model](#how-to-test-a-model)
 - [Project structure](#project-structure)
-- [Setup](#setup)
+- [Download project](#download-project)
 - [Results](#results)
   - [Songs](#songs)
-- [Team Members](#team-members)
 
 # Abstract 
 *"Recent advances in generative models have made the automated production of music an important area of deep learning research. This paper presents a simplified Generative Adversarial Network (GAN), inspired by [MidiNet paper](https://arxiv.org/abs/1703.10847), for symbolic music generation using the MAESTRO dataset. Its importance is in the fact that it demonstrates that a minimal, interpretable model can achieve stable and musically coherent results by addressing practical training challenges like mode collapse and non-convergence using techniques like minibatch discrimination and hyperparameter tuning. The main result is a successful training process, achieved by adjusting learning rates and update steps. This enables the generator to produce piano roll melodies without collapsing. This work provides a reproducible baseline that can be used as a good practical starting point for other experimental research in music generation."*
@@ -33,7 +35,6 @@ This section briefly defines the principal musical terms present in this project
 
 
 # How It Works
-
 The main part of this project is a GAN architecture designed for creating melodies. The entire process, from raw data to generated music, follows a specific pipeline:
 
 1.  **Input Data**: The process starts with raw MIDI files from the MAESTRO Dataset.
@@ -42,31 +43,75 @@ The main part of this project is a GAN architecture designed for creating melodi
 4.  **GAN Training**: The augmented dataset is used to train the GAN models. The training treats common GAN issues like mode collapse and instability through fine-tuned hyperparameters and techniques like mini-batch discrimination.
 5.  **Music Generation**: Once trained, the generator model can create new piano roll sequences, which are then converted back into MIDI files that can be stored and replayed.
 
+---
+
+# Dataset
+- **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
+
+We also used **[The Lakh MIDI Dataset](https://colinraffel.com/projects/lmd/)**
+to perform some tests, but here we have not reported a snapshot of this dataset.
+
+## How to create a dataset starting from raw MIDI files
+Consider that we want create a dataset for `model_v2`.
+You need to open the file `create_dataset2.py` in `data` folder and modfy the global variables:
+```python
+# Define the directory of the input midi file.
+# The specified directory must contains '.midi' and/or '.mid' files.
+INPUT_DIR_PATH = "./raw/maestro-v3.0.0/all/"
+
+# Define where the dataset will be saved.
+OUT_DIR_PATH = "./preprocessed/maestro-v3.0.0/dataset2/"
+
+# Define the name of the dataset (must end with '.h5').
+OUT_FILE_NAME = "all.h5"
+```
+Note that by defalut the name of input directory path is `./raw/maestro-v3.0.0/all/` but this directory is not provided.
+During our study, we manually copied the entire MAESTRO dataset into this directory.
+This setup allowed us to randomly select files from the dataset to create a testing dataset.
+
+Finaly you can create the dataset with:
+```
+python create_dataset2.py
+```
+A compressed file will be crated in the specified path.
+
+By default we perform data augmentation when creating the dataset.
+In general this is not a good practice, but in this way we were able to pre-load the entire dataset
+entirely in GPU before starting the training of the architecture.
+The dataset contains binary matrices, so it's size should be relatively small and shuld fit entirely on the GPU.
 
 # Models
-
 This project implements three distinct GAN models with increasing complexity:
 
 * **`model_v1`**: A baseline DCGAN that generates single, one-bar-long melodies from a random noise vector.
 * **`model_v2`**: A Conditional DCGAN that generates a melody bar conditioned on the preceding bar, encouraging more harmonically coherent sequences.
 * **`model_v3`**: An extension of `model_v2` that is also conditioned on the chord associated with the previous bar, adding another layer of musical context to the generation process.
-## How to train a model:
-1. As a first step you should open the notebook train_mode_v2.ipynb (if you want to train model v2 for example).
-2. dfd
-3. fdf
-4. df
-5. sdf
+  
+## How to train a model
+Consider that we want to train `model_v2` using the dataset stored in `/preprocessed/maestro-v3.0.0/dataset2/dataset_name.h5`.
+We suggest to use `model_v2` or `model_v3`, since the first model generates very short melodies that are not particularly
+interesting to listen to.
 
-***
+Open notebook `train_model_v2.ipynb`, go to the "Setup" section and change the value of the `DATASET_PATH` variable.
+```python
+# Dataset path.
+DATASET_PATH = "data/preprocessed/maestro-v3.0.0/dataset2/dataset_name.h5"
+```
+The just run all the cells to train the model.
 
-# Dataset:
-- **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
-We mainly used the MAESTRO Dataset. In this repository you can find the version 3.0.0.
-## How to change dataset:
-1. df
-2. df
-3. df
-4. df
+## How to test a model
+To test a model you should open notebook `tester_model_v2.ipynb` and change the line that load the checkpiont.
+```
+# Load model from checkpoint.
+ckp_path = "checkpoint_path.ckpt"
+model = GAN.load_from_checkpoint(ckp_path)
+```
+Then you can just run the notebook, 10 MIDI files will be created in `./outputs/songs/`.
+
+If instead you want to generate melodies using `model_v3` you need to open notebook `tester_model_v3.ipynb`.
+You need to perform the same steps described above.
+At the end of this file you can see that, for a single melody, 6 MIDI files are created.
+Each of them differs from the "chord pattern" applied.
 
 ---
 ## Project structure
@@ -78,15 +123,22 @@ We mainly used the MAESTRO Dataset. In this repository you can find the version 
 │   │       ├── dataset1          # Datasets for model_v1      
 │   │       ├── dataset2          # Datasets for model_v2
 │   │       └── dataset3          # Datasets for model_v3
-│   └── raw
-│       └── maestro-v3.0.0        # The Maestro Dataset
+│   ├── raw
+│   │   └── maestro-v3.0.0        # The Maestro Dataset
+│   │
+│   ├── create_dataset1.py        # Used to create a dataset for model_v1
+│   ├── create_dataset2.py        # Used to create a dataset for model_v2
+│   ├── create_dataset3.py        # Used to create a dataset for model_v3
+│   │
+│   └── midi_preprocessing.py     # Contains all the functions used to create the dataset.
 │
 ├── models                        # Contains the source code of model_v1, model_v2, model_v3
+│
 ├── outputs
 │   ├── checkpoints               # Checkpoints of the three models, divided by dataset
 │   └── songs                     # Some good songs ouputted by the three models
 │
-├── utils                         # Contains functions that are used in different parts of the project
+├── utils                         # Contains utils functions  used in different parts of the project
 │
 ├── tester_model_v2.ipynb         # Notebook used to test a trained model_v2
 ├── tester_model_v3.ipynb         # Notebook used to test a trained model_v3
@@ -96,7 +148,7 @@ We mainly used the MAESTRO Dataset. In this repository you can find the version 
 ```
 
 ---
-##  Setup
+##  Download project
 1. Clone the repo:  
    ```bash
    git clone https://github.com/Ultimi-Sumiti/DL_project/GAN_Music_Generator.git
@@ -112,6 +164,14 @@ We mainly used the MAESTRO Dataset. In this repository you can find the version 
 ## Songs
 In the following we report the ouputs inside the `songs` directory so you can listen to them direclty here without downloading the files.
 Also, in the video, you can visualize the piano roll of the melody.
+
+We do not provide samples generated my `model_v1` since they are not particularly interesting to listen to.
+
+Melodies generated after training on the MAESTRO dataset have filenames that start with "maestro".
+Some melodies were generated after training on the full ABBA directory from the Lakh MIDI Dataset; these can be recognized by filenames starting with "abba".
+
+Note that some melodies generated by `model_v2` are 9 bars long.
+This was due to a mistake in the code.
 
 ### Model v2
 Only melody, no chords.
@@ -140,20 +200,3 @@ https://github.com/user-attachments/assets/c328bcd5-630b-4c0b-a7ff-685774bf2356
 https://github.com/user-attachments/assets/a89f8a69-ad99-46c5-a8c9-ac113ff7b18b
 
 https://github.com/user-attachments/assets/304b05e2-6a8d-4875-8d66-d21cb8c45263
-
-
-## Team Members
-- **Luca Piai**   [GitHub](https://github.com/luca037)   
-
-- **Alessandro chinello** [GitHub](https://github.com/Ale10chine) 
-
-- **Mattia Scantamburlo**  [GitHub](https://github.com/Daedalus02)  
-
-
- 
-
-
-
-
-
-
