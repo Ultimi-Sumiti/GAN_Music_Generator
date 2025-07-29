@@ -51,6 +51,11 @@ This project implements three distinct GAN models with increasing complexity:
 * **`model_v2`**: A Conditional DCGAN that generates a melody bar conditioned on the preceding bar, encouraging more harmonically coherent sequences.
 * **`model_v3`**: An extension of `model_v2` that is also conditioned on the chord associated with the previous bar, adding another layer of musical context to the generation process.
 ## How to train a model:
+1. As a first step you should open the notebook train_mode_v2.ipynb (if you want to train model v2)
+2. dfd
+3. fdf
+4. df
+5. sdf
 
 ***
 
