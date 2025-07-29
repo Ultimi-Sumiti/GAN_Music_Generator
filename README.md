@@ -70,7 +70,7 @@ During our study, we manually copied the entire MAESTRO dataset into this direct
 This setup allowed us to randomly select files from the dataset to create a testing dataset.
 
 Finaly you can create the dataset with:
-```
+```bash
 python create_dataset2.py
 ```
 A compressed file will be crated in the specified path.
@@ -101,7 +101,7 @@ The just run all the cells to train the model.
 
 ## How to test a model
 To test a model you should open notebook `tester_model_v2.ipynb` and change the line that load the checkpiont.
-```
+```python
 # Load model from checkpoint.
 ckp_path = "checkpoint_path.ckpt"
 model = GAN.load_from_checkpoint(ckp_path)
