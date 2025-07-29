@@ -53,9 +53,10 @@ This project implements three distinct GAN models with increasing complexity:
 
 ***
 
-# Dataset used:
+# Dataset:
 - **[MAESTRO Dataset](https://magenta.tensorflow.org/datasets/maestro)**: 200+ hours of piano performances.
 We mainly used the MAESTRO Dataset. In this repository you can find the version 3.0.0.
+## How to change dataset:
 
 ---
 ## Project structure
