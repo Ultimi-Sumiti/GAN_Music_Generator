@@ -50,6 +50,7 @@ This project implements three distinct GAN models with increasing complexity:
 * **`model_v1`**: A baseline DCGAN that generates single, one-bar-long melodies from a random noise vector.
 * **`model_v2`**: A Conditional DCGAN that generates a melody bar conditioned on the preceding bar, encouraging more harmonically coherent sequences.
 * **`model_v3`**: An extension of `model_v2` that is also conditioned on the chord associated with the previous bar, adding another layer of musical context to the generation process.
+## How to train a model:
 
 ***
 
