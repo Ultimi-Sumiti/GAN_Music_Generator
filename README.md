@@ -195,6 +195,11 @@ https://github.com/user-attachments/assets/77605500-b42c-44e7-a4d4-3063df87cdf0
 ### Model v3
 Melody and chords.
 
+Melodies generated with this model have lower quality compared to those produced by the previous version.
+This is partly because we dedicated significantly more time to tuning and experimenting with Model v2.
+We observed that training Model v3 was more challenging: finding suitable 
+hyperparameter values to stabilize the $\min\max$ game was more difficult than with Model v2.
+
 https://github.com/user-attachments/assets/c328bcd5-630b-4c0b-a7ff-685774bf2356
 
 https://github.com/user-attachments/assets/a89f8a69-ad99-46c5-a8c9-ac113ff7b18b
