@@ -4,6 +4,8 @@
 ![GANs](https://img.shields.io/badge/model-GANs-orange) 
 ![MIDI](https://img.shields.io/badge/data-MIDI-lightgrey)
 
+https://github.com/user-attachments/assets/82d527f9-1e5f-466a-a88c-6aa98c1c3a07
+
 ## Table of Contents
 - [Abstract](#abstract)
 - [Key Musical Concepts](#key-musical-concepts)
@@ -20,6 +22,8 @@
 
 # Abstract 
 *"Recent advances in generative models have made the automated production of music an important area of deep learning research. This paper presents a simplified Generative Adversarial Network (GAN), inspired by [MidiNet paper](https://arxiv.org/abs/1703.10847), for symbolic music generation using the MAESTRO dataset. Its importance is in the fact that it demonstrates that a minimal, interpretable model can achieve stable and musically coherent results by addressing practical training challenges like mode collapse and non-convergence using techniques like minibatch discrimination and hyperparameter tuning. The main result is a successful training process, achieved by adjusting learning rates and update steps. This enables the generator to produce piano roll melodies without collapsing. This work provides a reproducible baseline that can be used as a good practical starting point for other experimental research in music generation."*
+
+More details can be found in `Symbolic-Domain_Music_Generation_with_GANs.pdf`.
 
 
 # Key Musical Concepts
