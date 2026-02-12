@@ -180,21 +180,22 @@ This was due to a mistake in the code.
 ### Model v2
 Only melody, no chords.
 
-https://github.com/user-attachments/assets/d522a59a-8539-4017-bd6e-0a13f38e957a
+https://github.com/user-attachments/assets/8efa6557-1481-43a5-8d5f-06e0e7bf5613
 
-https://github.com/user-attachments/assets/eb8112cd-4776-4ab6-88a3-96214156483b
+https://github.com/user-attachments/assets/edf50a66-16ac-491e-8547-9106e72eeeeb
 
-https://github.com/user-attachments/assets/c112088c-17a2-4a39-b069-adec21f771b7
+https://github.com/user-attachments/assets/f76b981c-dba4-4669-bd3e-03a3ae385045
 
-https://github.com/user-attachments/assets/4f056c07-497a-4525-a695-9d3e275cf675
+https://github.com/user-attachments/assets/302b1f9d-1b16-4ab2-b43d-753618f574c3
 
-https://github.com/user-attachments/assets/99fbfd79-9cb1-41a1-981a-8f13c762fcc9
+https://github.com/user-attachments/assets/1468dae8-dbe3-4766-97df-ffc67e8b282b
 
-https://github.com/user-attachments/assets/eef2ab64-3aa4-41c5-91ab-95d18cd52a21
+https://github.com/user-attachments/assets/07509f89-7f70-4e2a-a245-63f3b124596d
 
-https://github.com/user-attachments/assets/ff616048-7707-43b6-a443-ae5c6c5c70bd
+https://github.com/user-attachments/assets/9e82f3b5-a84b-4b50-9437-1db32b15ed0c
 
-https://github.com/user-attachments/assets/77605500-b42c-44e7-a4d4-3063df87cdf0
+https://github.com/user-attachments/assets/ab49a718-503b-49d8-bb28-3cafaf85b8c5
+
 
 ### Model v3
 Melody and chords.
@@ -204,8 +205,8 @@ This is partly because we dedicated significantly more time to tuning and experi
 We observed that training Model v3 was more challenging: finding suitable 
 hyperparameter values to stabilize the $\min\max$ game was more difficult than with Model v2.
 
-https://github.com/user-attachments/assets/c328bcd5-630b-4c0b-a7ff-685774bf2356
+https://github.com/user-attachments/assets/6a000ef9-876c-4374-8e82-344b1905955d
 
-https://github.com/user-attachments/assets/a89f8a69-ad99-46c5-a8c9-ac113ff7b18b
+https://github.com/user-attachments/assets/10795a7a-dec2-42e5-8192-2adcaf8f9765
 
-https://github.com/user-attachments/assets/304b05e2-6a8d-4875-8d66-d21cb8c45263
+https://github.com/user-attachments/assets/7ccfa039-f967-4197-b39f-99ac4ac85471
