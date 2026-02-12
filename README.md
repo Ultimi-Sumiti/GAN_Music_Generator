@@ -1,3 +1,8 @@
+
+<p align="center">
+  <img width="450" height="300" alt="gan_logo" src="https://github.com/user-attachments/assets/83108e82-d10f-4ae1-9cd8-086b9c839c09" />
+</p>
+
 # Symbolic-Domain Music Generation with GANs
 
 ![Music Generation](https://img.shields.io/badge/domain-music%20generation-blue) 
